@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026年 大学入学共通テスト 英語(R) 重要語句復習アプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Inter"', '"Noto Sans JP"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+        }
+        .card {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+        }
+        @media (min-width: 640px) {
+            .card { padding: 32px; }
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: #0ea5e9; color: white; }
+        .btn-primary:hover { background: #0284c7; }
+        .btn-secondary { background: white; color: #475569; border: 1px solid #e2e8f0; }
+        .btn-green { background: #10b981; color: white; }
+        .btn-red { background: #ef4444; color: white; }
+        .btn-orange { background: #f97316; color: white; }
+        .btn-disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
+        
+        .hidden { display: none !important; }
+        
+        /* Quiz & Flashcard Styles */
+        .quiz-option {
+            border: 2px solid #f1f5f9;
+            padding: 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        .quiz-option:hover { border-color: #0ea5e9; background-color: #f0f9ff; }
+        .quiz-option.correct { border-color: #10b981; background-color: #d1fae5; color: #065f46; }
+        .quiz-option.incorrect { border-color: #ef4444; background-color: #fee2e2; color: #991b1b; }
+        
+        #mic-icon.recording { animation: pulse 1.5s infinite; color: white; }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        /* Checkbox Custom Style */
+        .word-checkbox {
+            width: 1.25rem;
+            height: 1.25rem;
+            color: #0ea5e9;
+            border-radius: 0.25rem;
+            border-color: #cbd5e1;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+    <div id="app" class="max-w-4xl mx-auto p-4 sm:p-8">
+        <header class="text-center mb-10">
+            <div class="inline-block p-2 bg-white rounded-2xl shadow-sm mb-4">
+                <span class="px-3 py-1 bg-brand-100 text-brand-600 rounded-lg text-xs font-bold tracking-wider uppercase">Study App</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                <span class="text-brand-600">2026年 大学入学共通テスト 英語(R)</span><br>
+                重要語句復習
+            </h1>
+        </header>
+
+        <!-- Setup Section -->
+        <section id="setup-section" class="card space-y-8 animate-fade-in">
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                        <span class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 text-brand-600 text-sm mr-3">1</span>
+                        学習する単語を選択
+                    </h2>
+                    <div class="flex space-x-2">
+                        <button id="select-all" class="text-xs font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 px-3 py-1.5 rounded-lg transition">すべて選択</button>
+                        <button id="deselect-all" class="text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition">すべて解除</button>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <div id="word-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto pr-2">
+                        <!-- Words will be injected here via JS -->
+                        <div class="col-span-full text-center text-slate-400 py-8">読み込み中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 text-brand-600 text-sm mr-3">2</span>
+                    学習モードを選択
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label class="relative flex items-center p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-brand-300 transition-all group bg-white">
+                        <input type="radio" name="mode" value="word" class="peer sr-only" checked>
+                        <div class="w-5 h-5 border-2 border-slate-300 rounded-full mr-3 peer-checked:border-brand-500 peer-checked:bg-brand-500 relative"></div>
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-700 peer-checked:text-brand-700">単語・フレーズのみ</span>
+                            <span class="text-xs text-slate-500 mt-1">基本的な意味を覚える</span>
+                        </div>
+                        <div class="absolute inset-0 border-2 border-transparent peer-checked:border-brand-500 rounded-xl pointer-events-none"></div>
+                    </label>
+                    <label class="relative flex items-center p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-brand-300 transition-all group bg-white">
+                        <input type="radio" name="mode" value="sentence" class="peer sr-only">
+                        <div class="w-5 h-5 border-2 border-slate-300 rounded-full mr-3 peer-checked:border-brand-500 peer-checked:bg-brand-500 relative"></div>
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-700 peer-checked:text-brand-700">例文で学習</span>
+                            <span class="text-xs text-slate-500 mt-1">文脈から推測・リスニング</span>
+                        </div>
+                        <div class="absolute inset-0 border-2 border-transparent peer-checked:border-brand-500 rounded-xl pointer-events-none"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="pt-4 flex flex-col sm:flex-row gap-4 justify-center items-center border-t border-slate-100">
+                <button id="start-learning-btn" class="btn btn-primary w-full sm:w-auto text-lg min-w-[200px]">
+                    <i class="fas fa-play mr-2 text-sm"></i> 学習を開始
+                </button>
+                <button id="quick-test-btn" class="btn btn-orange w-full sm:w-auto text-lg">
+                    <i class="fas fa-random mr-2"></i> ランダムテスト
+                </button>
+                <button id="download-pdf-btn" class="btn btn-green w-full sm:w-auto text-lg">
+                    <i class="fas fa-file-pdf mr-2 text-white"></i> PDF作成
+                </button>
+            </div>
+        </section>
+
+        <!-- Learning Section -->
+        <section id="learning-section" class="card hidden flex flex-col h-auto min-h-[600px]">
+            <div class="flex justify-between items-center mb-6">
+                 <button id="back-to-setup-btn" class="text-sm text-slate-500 hover:text-slate-800 flex items-center transition">
+                    <i class="fas fa-arrow-left mr-2"></i> 戻る
+                </button>
+                <div class="bg-slate-100 px-4 py-1.5 rounded-full">
+                    <span id="progress-indicator" class="text-sm font-bold text-slate-600 font-mono"></span>
+                </div>
+                <div class="w-16"></div>
+            </div>
+            
+            <div class="flex-grow flex flex-col justify-center mb-8">
+                <div id="flashcard-container" class="relative w-full cursor-pointer group">
+                    <div class="relative w-full min-h-[350px] bg-white rounded-2xl border-2 border-slate-100 shadow-sm hover:border-brand-200 transition-all duration-300 flex flex-col items-center justify-center p-6 text-center">
+                        <div class="w-full flex flex-col items-center">
+                            <div id="illustration-area" class="hidden mb-6 text-brand-500">
+                                <i class="fas fa-book-open text-5xl opacity-80"></i>
+                            </div>
+                            <p id="english-text" class="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-800 mb-6 leading-tight select-text"></p>
+                            <div id="japanese-wrapper" class="h-auto min-h-[4rem] transition-all duration-300 opacity-0 transform translate-y-4">
+                                <p id="japanese-text" class="text-xl sm:text-2xl text-brand-600 font-medium"></p>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-8 uppercase tracking-widest">Click to reveal</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="pronunciation-feedback-container" class="mt-6 min-h-[60px]"></div>
+            </div>
+
+            <div class="mt-auto">
+                <div class="flex justify-center items-center space-x-6 mb-8">
+                    <button id="speak-btn" class="btn btn-secondary rounded-full w-14 h-14 p-0 flex items-center justify-center shadow-sm" title="音声を聞く">
+                        <i class="fas fa-volume-up text-xl"></i>
+                    </button>
+                    <button id="record-btn" class="btn btn-red rounded-full w-16 h-16 p-0 flex items-center justify-center shadow-lg" title="発音練習">
+                        <i id="mic-icon" class="fas fa-microphone text-2xl"></i>
+                    </button>
+                    <button id="play-recording-btn" class="btn btn-green btn-disabled rounded-full w-14 h-14 p-0 flex items-center justify-center shadow-sm" disabled title="自分の声を聞く">
+                        <i class="fas fa-play text-xl"></i>
+                    </button>
+                </div>
+                <audio id="recording-player" class="hidden"></audio>
+
+                <div class="flex justify-between items-center gap-2">
+                    <button id="prev-btn" class="btn btn-secondary px-4 sm:px-6"><i class="fas fa-chevron-left mr-2"></i> <span class="hidden sm:inline">前へ</span></button>
+                    <button id="start-test-btn" class="btn btn-primary flex-grow sm:flex-grow-0 px-8 shadow-md">テストへ <i class="fas fa-graduation-cap ml-2"></i></button>
+                    <button id="next-btn" class="btn btn-secondary px-4 sm:px-6"><span class="hidden sm:inline">次へ</span> <i class="fas fa-chevron-right ml-2"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Test Options Section -->
+        <section id="test-options-section" class="card hidden text-center py-16">
+            <h2 class="text-3xl font-bold text-slate-800 mb-8">テスト問題数を選択</h2>
+            <div id="test-choices" class="flex flex-wrap justify-center gap-4 mb-12"></div>
+            <button id="back-to-learning-btn" class="text-slate-500 hover:text-slate-800 font-medium">戻る</button>
+        </section>
+
+        <!-- Quiz Section -->
+        <section id="quiz-section" class="card hidden">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+                 <h2 class="text-xl font-bold text-slate-800">テスト中 <span id="quiz-progress" class="ml-2 text-sm bg-brand-100 text-brand-700 px-2 py-1 rounded"></span></h2>
+                 <button id="abort-test-btn" class="text-sm text-red-500">中断</button>
+            </div>
+            <div class="mb-8 text-center">
+                <p class="text-sm text-slate-400 mb-2 uppercase">Question</p>
+                <p id="quiz-question" class="text-3xl sm:text-4xl font-bold text-slate-800 mb-8"></p>
+                <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left"></div>
+            </div>
+            <div id="feedback" class="text-center font-bold my-4 min-h-[40px] flex items-center justify-center text-lg"></div>
+            <div class="text-center h-14">
+                 <button id="next-question-btn" class="hidden btn btn-primary px-8">次へ <i class="fas fa-arrow-right ml-2"></i></button>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results-section" class="card hidden text-center py-12">
+            <div class="mb-6"><span class="text-5xl font-bold text-brand-600" id="score-percentage"></span></div>
+            <p id="score-text" class="text-xl text-slate-600 mb-8"></p>
+            <div id="incorrect-answers-container" class="text-left bg-red-50 border border-red-100 rounded-xl p-6 mb-8 hidden">
+                <h3 class="text-lg font-bold text-red-800 mb-4">復習リスト</h3>
+                <ul id="incorrect-answers-list" class="space-y-3"></ul>
+            </div>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <button id="restart-btn" class="btn btn-primary">もう一度</button>
+                <button id="back-to-home-btn" class="btn btn-secondary">ホーム</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- PDF Modal -->
+    <div id="pdf-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div class="bg-slate-50 px-6 py-4 border-b flex justify-between items-center">
+                <h3 class="text-lg font-bold">PDF作成</h3>
+                <button id="close-modal-icon" class="text-slate-400"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6 grid grid-cols-1 gap-3">
+                <button id="download-list-btn" class="p-3 border rounded-lg hover:bg-brand-50 hover:border-brand-500 text-left font-bold text-slate-700">1. 単語リスト</button>
+                <button id="download-en-quiz-btn" class="p-3 border rounded-lg hover:bg-brand-50 hover:border-brand-500 text-left font-bold text-slate-700">2. 英単語テスト</button>
+                <button id="download-ja-quiz-btn" class="p-3 border rounded-lg hover:bg-brand-50 hover:border-brand-500 text-left font-bold text-slate-700">3. 和訳テスト</button>
+                <button id="download-mixed-quiz-btn" class="p-3 border rounded-lg hover:bg-brand-50 hover:border-brand-500 text-left font-bold text-slate-700">4. 混合テスト</button>
+                <button id="download-sentence-quiz-btn" class="p-3 border rounded-lg hover:bg-brand-50 hover:border-brand-500 text-left font-bold text-slate-700">5. 例文穴埋め</button>
+                <button id="download-sentence-mixed-quiz-btn" class="p-3 border rounded-lg hover:bg-brand-50 hover:border-brand-500 text-left font-bold text-slate-700">6. 例文実戦テスト</button>
+            </div>
+            <div class="bg-slate-50 px-6 py-3 border-t text-right">
+                <button id="close-modal-btn" class="text-sm font-medium text-slate-500">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const vocabularyData = [
+            // Q1
+            { "english": "exchange", "japanese": "～を交換する、やり取りする", "sentence": "We exchanged contact information.", "sentence_ja": "私たちは連絡先を交換した。" },
+            { "english": "costume", "japanese": "衣装", "sentence": "She wore a beautiful costume for the play.", "sentence_ja": "彼女は劇のために美しい衣装を着た。" },
+            { "english": "match", "japanese": "～に調和する、合う", "sentence": "This tie matches your shirt perfectly.", "sentence_ja": "このネクタイはあなたのシャツに完璧に合っている。" },
+            { "english": "traditional", "japanese": "伝統的な", "sentence": "They wore traditional Japanese clothes.", "sentence_ja": "彼らは日本の伝統的な服を着ていた。" },
+            { "english": "suggestion", "japanese": "提案", "sentence": "Do you have any suggestions for dinner?", "sentence_ja": "夕食について何か提案はありますか？" },
+            { "english": "look", "japanese": "外見、見た目", "sentence": "I like the new look of your website.", "sentence_ja": "私はあなたのウェブサイトの新しい見た目が好きだ。" },
+            { "english": "accessories", "japanese": "アクセサリー、装飾品", "sentence": "She bought some accessories to go with her dress.", "sentence_ja": "彼女はドレスに合わせるアクセサリーをいくつか買った。" },
+            { "english": "instead", "japanese": "代わりに", "sentence": "I'll have tea instead of coffee.", "sentence_ja": "コーヒーの代わりに紅茶をいただきます。" },
+            { "english": "make it hard to", "japanese": "～するのを難しくする", "sentence": "The noise made it hard to concentrate.", "sentence_ja": "騒音のせいで集中するのが難しくなった。" },
+            { "english": "switch", "japanese": "変える、切り替える", "sentence": "Let's switch seats.", "sentence_ja": "席を替えましょう。" },
+            { "english": "take off", "japanese": "（衣類などを）脱ぐ", "sentence": "Please take off your shoes here.", "sentence_ja": "ここでは靴を脱いでください。" },
+            { "english": "rehearsal", "japanese": "リハーサル", "sentence": "The rehearsal started at 5 PM.", "sentence_ja": "リハーサルは午後5時に始まった。" },
+            { "english": "instructor", "japanese": "指導者、インストラクター", "sentence": "The yoga instructor was very patient.", "sentence_ja": "そのヨガのインストラクターはとても忍耐強かった。" },
+            { "english": "available", "japanese": "空いている、都合がつく", "sentence": "I'm available tomorrow afternoon.", "sentence_ja": "私は明日の午後は空いています。" },
+            { "english": "worried about", "japanese": "～について心配している", "sentence": "She is worried about the test results.", "sentence_ja": "彼女はテストの結果について心配している。" },
+            { "english": "safety", "japanese": "安全", "sentence": "Safety comes first.", "sentence_ja": "安全が第一だ。" },
+            { "english": "second half", "japanese": "後半", "sentence": "The team played better in the second half.", "sentence_ja": "そのチームは後半、より良いプレーをした。" },
+            { "english": "probably", "japanese": "おそらく", "sentence": "It will probably rain tomorrow.", "sentence_ja": "明日はおそらく雨だろう。" },
+            { "english": "consult with", "japanese": "～に相談する", "sentence": "You should consult with a doctor.", "sentence_ja": "あなたは医者に相談すべきだ。" },
+            { "english": "routine", "japanese": "決まった手順、演技の一連の動作", "sentence": "My morning routine includes coffee.", "sentence_ja": "私の朝の決まった手順にはコーヒーが含まれる。" },
+
+            // Q2
+            { "english": "accommodation", "japanese": "宿泊施設、寮", "sentence": "The price includes accommodation and meals.", "sentence_ja": "価格には宿泊施設と食事が含まれている。" },
+            { "english": "resident", "japanese": "居住者", "sentence": "He is a resident of this apartment.", "sentence_ja": "彼はこのアパートの居住者だ。" },
+            { "english": "administration", "japanese": "管理部、大学当局", "sentence": "Please contact the administration office.", "sentence_ja": "管理部事務所に連絡してください。" },
+            { "english": "mission", "japanese": "使命、任務", "sentence": "Our mission is to help people.", "sentence_ja": "私たちの使命は人々を助けることだ。" },
+            { "english": "sufficient", "japanese": "十分な", "sentence": "We have sufficient food for everyone.", "sentence_ja": "全員分の十分な食料がある。" },
+            { "english": "majority", "japanese": "大多数", "sentence": "The majority of students agreed.", "sentence_ja": "大多数の学生が同意した。" },
+            { "english": "response rate", "japanese": "回答率", "sentence": "The survey had a high response rate.", "sentence_ja": "その調査は高い回答率だった。" },
+            { "english": "unfortunately", "japanese": "残念ながら", "sentence": "Unfortunately, I cannot attend.", "sentence_ja": "残念ながら、私は出席できません。" },
+            { "english": "drop", "japanese": "低下、減少", "sentence": "There was a sharp drop in sales.", "sentence_ja": "売上の急激な減少があった。" },
+            { "english": "introduce", "japanese": "導入する", "sentence": "They introduced a new system.", "sentence_ja": "彼らは新しいシステムを導入した。" },
+            { "english": "remain", "japanese": "～のままである、残る", "sentence": "Please remain seated.", "sentence_ja": "座ったままでいてください。" },
+            { "english": "be satisfied with", "japanese": "～に満足している", "sentence": "Are you satisfied with the service?", "sentence_ja": "サービスに満足していますか？" },
+            { "english": "tend to", "japanese": "～する傾向がある", "sentence": "He tends to talk too much.", "sentence_ja": "彼は喋りすぎる傾向がある。" },
+            { "english": "homestay", "japanese": "ホームステイ", "sentence": "I did a homestay in Canada.", "sentence_ja": "私はカナダでホームステイをした。" },
+            { "english": "think over", "japanese": "～を熟考する", "sentence": "I need time to think it over.", "sentence_ja": "それを熟考する時間が必要だ。" },
+            { "english": "lasting", "japanese": "長続きする", "sentence": "It made a lasting impression on me.", "sentence_ja": "それは私に長続きする印象を与えた。" },
+            { "english": "alternative", "japanese": "代わりとなるもの", "sentence": "We have no alternative but to leave.", "sentence_ja": "私たちは立ち去る以外に代わりの方法がない。" },
+            { "english": "concern", "japanese": "懸念、関心事", "sentence": "My main concern is your health.", "sentence_ja": "私の主な懸念はあなたの健康だ。" },
+            { "english": "lively", "japanese": "活気のある、騒がしい", "sentence": "The party was very lively.", "sentence_ja": "パーティーはとても活気があった。" },
+            { "english": "findings", "japanese": "調査結果", "sentence": "The findings were published today.", "sentence_ja": "調査結果は今日発表された。" },
+            { "english": "reliable", "japanese": "信頼できる", "sentence": "He is a reliable friend.", "sentence_ja": "彼は信頼できる友人だ。" },
+            { "english": "conduct", "japanese": "（調査などを）実施する", "sentence": "They conducted a survey.", "sentence_ja": "彼らは調査を実施した。" },
+            { "english": "annually", "japanese": "毎年", "sentence": "The festival is held annually.", "sentence_ja": "その祭りは毎年開催される。" },
+            { "english": "decline", "japanese": "減少する、低下する", "sentence": "The population is declining.", "sentence_ja": "人口は減少している。" },
+            { "english": "reflect", "japanese": "反映する", "sentence": "The price reflects the quality.", "sentence_ja": "価格は品質を反映している。" },
+            { "english": "doubt", "japanese": "～を疑う", "sentence": "I doubt his story is true.", "sentence_ja": "私は彼の話が本当か疑っている。" },
+            { "english": "comfortable", "japanese": "快適な", "sentence": "This chair is very comfortable.", "sentence_ja": "この椅子はとても快適だ。" },
+            { "english": "interfere with", "japanese": "～を妨げる、邪魔する", "sentence": "Don't interfere with my work.", "sentence_ja": "私の仕事を邪魔しないで。" },
+            { "english": "serving", "japanese": "（食事の）一人前", "sentence": "This recipe makes four servings.", "sentence_ja": "このレシピは4人前です。" },
+
+            // Q3
+            { "english": "sign up for", "japanese": "～に申し込む、登録する", "sentence": "I signed up for the gym.", "sentence_ja": "私はジムに申し込んだ。" },
+            { "english": "workshop", "japanese": "講習会、ワークショップ", "sentence": "We attended a writing workshop.", "sentence_ja": "私たちはライティングのワークショップに参加した。" },
+            { "english": "control", "japanese": "～を制御する", "sentence": "He couldn't control his anger.", "sentence_ja": "彼は怒りを制御できなかった。" },
+            { "english": "recommend", "japanese": "～を勧める", "sentence": "I recommend this book.", "sentence_ja": "私はこの本を勧める。" },
+            { "english": "grade", "japanese": "成績", "sentence": "She got good grades in math.", "sentence_ja": "彼女は数学で良い成績を取った。" },
+            { "english": "come along", "japanese": "一緒に行く", "sentence": "Do you want to come along?", "sentence_ja": "一緒に行きたいですか？" },
+            { "english": "session", "japanese": "（活動の）期間、集まり", "sentence": "The training session lasts two hours.", "sentence_ja": "トレーニングの集まりは2時間続く。" },
+            { "english": "faint", "japanese": "かすかな", "sentence": "I heard a faint noise.", "sentence_ja": "私はかすかな音を聞いた。" },
+            { "english": "buzzing", "japanese": "ブンブンいう音", "sentence": "The buzzing of bees was loud.", "sentence_ja": "ハチのブンブンいう音がうるさかった。" },
+            { "english": "insect", "japanese": "昆虫", "sentence": "Ants are insects.", "sentence_ja": "アリは昆虫だ。" },
+            { "english": "be supposed to", "japanese": "～することになっている", "sentence": "I am supposed to meet him at 5.", "sentence_ja": "私は5時に彼に会うことになっている。" },
+            { "english": "trap", "japanese": "閉じ込める、罠にかける", "sentence": "The mouse was trapped in the box.", "sentence_ja": "ネズミは箱に閉じ込められた。" },
+            { "english": "slide", "japanese": "滑らせる", "sentence": "He slid the door open.", "sentence_ja": "彼はドアを滑らせて開けた。" },
+            { "english": "impress", "japanese": "感動させる", "sentence": "I was impressed by his speech.", "sentence_ja": "私は彼のスピーチに感動させられた。" },
+            { "english": "creature", "japanese": "生き物", "sentence": "We saw many sea creatures.", "sentence_ja": "私たちは多くの海の生き物を見た。" },
+            { "english": "concentrate", "japanese": "集中する", "sentence": "I can't concentrate on my work.", "sentence_ja": "私は仕事に集中できない。" },
+            { "english": "encourage", "japanese": "励ます、勧める", "sentence": "My teacher encouraged me to try.", "sentence_ja": "先生は私に挑戦するよう励ました。" },
+            { "english": "valuable", "japanese": "貴重な", "sentence": "This ring is very valuable.", "sentence_ja": "この指輪はとても貴重だ。" },
+            { "english": "be aware of", "japanese": "～に気づいている", "sentence": "Are you aware of the danger?", "sentence_ja": "あなたはその危険に気づいていますか？" },
+            { "english": "annoying", "japanese": "いらいらさせる、迷惑な", "sentence": "That noise is very annoying.", "sentence_ja": "その音はとてもいらいらさせる。" },
+            { "english": "attractive", "japanese": "魅力的な", "sentence": "The offer sounds attractive.", "sentence_ja": "その申し出は魅力的に聞こえる。" },
+            { "english": "cruel", "japanese": "残酷な", "sentence": "It is cruel to hurt animals.", "sentence_ja": "動物を傷つけるのは残酷だ。" },
+            { "english": "strict", "japanese": "厳しい", "sentence": "His parents are very strict.", "sentence_ja": "彼の両親はとても厳しい。" },
+            { "english": "tender", "japanese": "優しい", "sentence": "She has a tender heart.", "sentence_ja": "彼女は優しい心を持っている。" },
+
+            // Q4
+            { "english": "promote", "japanese": "促進する、宣伝する", "sentence": "The campaign promotes healthy eating.", "sentence_ja": "そのキャンペーンは健康的な食事を促進する。" },
+            { "english": "waste management", "japanese": "廃棄物管理", "sentence": "Effective waste management is important.", "sentence_ja": "効果的な廃棄物管理は重要だ。" },
+            { "english": "draft", "japanese": "原稿、草案", "sentence": "I wrote the first draft of my essay.", "sentence_ja": "私はエッセイの最初の草案を書いた。" },
+            { "english": "supervisor", "japanese": "指導教員、監督者", "sentence": "Ask your supervisor for help.", "sentence_ja": "指導教員に助けを求めなさい。" },
+            { "english": "challenge", "japanese": "課題、難問", "sentence": "We face many challenges.", "sentence_ja": "私たちは多くの課題に直面している。" },
+            { "english": "reduce", "japanese": "減らす", "sentence": "We need to reduce waste.", "sentence_ja": "私たちはゴミを減らす必要がある。" },
+            { "english": "raise awareness of", "japanese": "～の意識を高める", "sentence": "We aim to raise awareness of climate change.", "sentence_ja": "私たちは気候変動への意識を高めることを目指している。" },
+            { "english": "inform", "japanese": "知らせる", "sentence": "Please inform us of any changes.", "sentence_ja": "変更があれば私たちに知らせてください。" },
+            { "english": "keep in mind", "japanese": "～を心に留めておく", "sentence": "Keep in mind that the deadline is soon.", "sentence_ja": "締め切りが近いことを心に留めておいて。" },
+            { "english": "garbage", "japanese": "ゴミ", "sentence": "Don't throw garbage on the street.", "sentence_ja": "通りにゴミを捨てないで。" },
+            { "english": "seashore", "japanese": "海岸", "sentence": "We walked along the seashore.", "sentence_ja": "私たちは海岸沿いを歩いた。" },
+            { "english": "organizer", "japanese": "主催者", "sentence": "The organizers did a great job.", "sentence_ja": "主催者たちは素晴らしい仕事をした。" },
+            { "english": "aim", "japanese": "目的", "sentence": "My aim is to become a doctor.", "sentence_ja": "私の目的は医者になることだ。" },
+            { "english": "feature", "japanese": "特集する、大きく取り上げる", "sentence": "The magazine features local artists.", "sentence_ja": "その雑誌は地元の芸術家を特集している。" },
+            { "english": "exhibit", "japanese": "展示する", "sentence": "They will exhibit their paintings.", "sentence_ja": "彼らは絵画を展示する予定だ。" },
+            { "english": "acquire", "japanese": "習得する、獲得する", "sentence": "He acquired a new skill.", "sentence_ja": "彼は新しいスキルを習得した。" },
+            { "english": "campaign", "japanese": "キャンペーン、運動", "sentence": "The marketing campaign was successful.", "sentence_ja": "マーケティングキャンペーンは成功した。" },
+            { "english": "argument", "japanese": "主張、議論", "sentence": "His argument was convincing.", "sentence_ja": "彼の主張は説得力があった。" },
+            { "english": "rewrite", "japanese": "書き直す", "sentence": "I had to rewrite the report.", "sentence_ja": "私はレポートを書き直さなければならなかった。" },
+            { "english": "advertise", "japanese": "宣伝する", "sentence": "They advertised the product on TV.", "sentence_ja": "彼らはその製品をテレビで宣伝した。" },
+            { "english": "discover", "japanese": "発見する", "sentence": "Scientists discovered a new planet.", "sentence_ja": "科学者たちは新しい惑星を発見した。" },
+            { "english": "recruit", "japanese": "募集する", "sentence": "The club is recruiting new members.", "sentence_ja": "そのクラブは新メンバーを募集している。" },
+            { "english": "appreciate", "japanese": "正しく評価する、感謝する", "sentence": "I appreciate your help.", "sentence_ja": "あなたの助けに感謝します。" },
+            { "english": "reuse", "japanese": "再利用する", "sentence": "We should reuse plastic bags.", "sentence_ja": "私たちはビニール袋を再利用すべきだ。" },
+            { "english": "influence", "japanese": "影響を与える", "sentence": "She influenced my decision.", "sentence_ja": "彼女は私の決断に影響を与えた。" },
+            { "english": "industry", "japanese": "産業、業界", "sentence": "The tech industry is growing.", "sentence_ja": "技術産業は成長している。" },
+            { "english": "growth", "japanese": "成長", "sentence": "Economic growth is slow.", "sentence_ja": "経済成長は遅い。" },
+            { "english": "provide A with B", "japanese": "AにBを提供する", "sentence": "The school provides students with lunch.", "sentence_ja": "学校は生徒に昼食を提供する。" },
+            { "english": "opportunity", "japanese": "機会", "sentence": "It was a great opportunity.", "sentence_ja": "それは素晴らしい機会だった。" },
+            { "english": "focus on", "japanese": "～に焦点を当てる", "sentence": "We need to focus on the problem.", "sentence_ja": "私たちはその問題に焦点を当てる必要がある。" },
+            { "english": "cooperate with", "japanese": "～と協力する", "sentence": "We cooperated with another team.", "sentence_ja": "私たちは別のチームと協力した。" },
+            { "english": "get involved in", "japanese": "～に関わる、参加する", "sentence": "She got involved in local politics.", "sentence_ja": "彼女は地元の政治に関わった。" },
+
+            // Q5
+            { "english": "leaflet", "japanese": "チラシ", "sentence": "They handed out leaflets on the street.", "sentence_ja": "彼らは通りでチラシを配った。" },
+            { "english": "submit", "japanese": "提出する", "sentence": "Please submit your application by Friday.", "sentence_ja": "金曜日までに申し込みを提出してください。" },
+            { "english": "recommendation", "japanese": "推薦（図書）", "sentence": "I bought the book on your recommendation.", "sentence_ja": "あなたの推薦でその本を買いました。" },
+            { "english": "fair", "japanese": "フェア、見本市", "sentence": "We went to a book fair.", "sentence_ja": "私たちはブックフェアに行った。" },
+            { "english": "selection", "japanese": "選定、品揃え", "sentence": "The store has a wide selection of shoes.", "sentence_ja": "その店は靴の品揃えが豊富だ。" },
+            { "english": "preschool", "japanese": "就学前の", "sentence": "It is a book for preschool children.", "sentence_ja": "それは就学前の子供向けの本だ。" },
+            { "english": "volunteer", "japanese": "ボランティアをする", "sentence": "She volunteers at the library.", "sentence_ja": "彼女は図書館でボランティアをしている。" },
+            { "english": "original language", "japanese": "原語", "sentence": "I read the novel in its original language.", "sentence_ja": "私はその小説を原語で読んだ。" },
+            { "english": "translation", "japanese": "翻訳", "sentence": "The translation is very accurate.", "sentence_ja": "その翻訳は非常に正確だ。" },
+            { "english": "nominate", "japanese": "推薦する、指名する", "sentence": "He was nominated for the award.", "sentence_ja": "彼はその賞に推薦された。" },
+            { "english": "register", "japanese": "登録する", "sentence": "You need to register online.", "sentence_ja": "オンラインで登録する必要がある。" },
+            { "english": "via", "japanese": "～経由で", "sentence": "I sent the file via email.", "sentence_ja": "私はメール経由でファイルを送った。" },
+            { "english": "heart-warming", "japanese": "心温まる", "sentence": "It was a heart-warming story.", "sentence_ja": "それは心温まる物語だった。" },
+            { "english": "feed", "japanese": "餌をやる", "sentence": "Don't feed the animals.", "sentence_ja": "動物に餌をやらないでください。" },
+            { "english": "suitable for", "japanese": "～に適した", "sentence": "This movie is suitable for children.", "sentence_ja": "この映画は子供に適している。" },
+            { "english": "by chance", "japanese": "偶然に", "sentence": "I met him by chance.", "sentence_ja": "私は偶然彼に会った。" },
+            { "english": "paw print", "japanese": "（動物の）足跡", "sentence": "We found paw prints in the mud.", "sentence_ja": "私たちは泥の中に動物の足跡を見つけた。" },
+            { "english": "capture", "japanese": "捕らえる", "sentence": "The photo captured her smile.", "sentence_ja": "その写真は彼女の笑顔を捕らえた。" },
+            { "english": "tear", "japanese": "涙", "sentence": "Tears rolled down her cheeks.", "sentence_ja": "涙が彼女の頬を伝った。" },
+            { "english": "trick", "japanese": "いたずら", "sentence": "He played a trick on me.", "sentence_ja": "彼は私にいたずらをした。" },
+            { "english": "rescue", "japanese": "救助する", "sentence": "Firefighters rescued the cat.", "sentence_ja": "消防士たちはその猫を救助した。" },
+            { "english": "injured", "japanese": "傷ついた", "sentence": "The injured bird couldn't fly.", "sentence_ja": "傷ついた鳥は飛べなかった。" },
+            { "english": "multiple", "japanese": "多数の、複数の", "sentence": "He has multiple hobbies.", "sentence_ja": "彼には複数の趣味がある。" },
+            { "english": "target age range", "japanese": "対象年齢層", "sentence": "The target age range is 10 to 12.", "sentence_ja": "対象年齢層は10歳から12歳だ。" },
+            { "english": "gratefully", "japanese": "感謝して", "sentence": "She gratefully accepted the gift.", "sentence_ja": "彼女は感謝して贈り物を受け取った。" },
+            { "english": "attachment", "japanese": "添付ファイル", "sentence": "Please check the attachment.", "sentence_ja": "添付ファイルを確認してください。" },
+            { "english": "additional", "japanese": "追加の", "sentence": "There is an additional charge.", "sentence_ja": "追加料金があります。" },
+            { "english": "reconsider", "japanese": "再考する", "sentence": "Please reconsider your decision.", "sentence_ja": "あなたの決断を再考してください。" },
+            { "english": "display", "japanese": "展示する", "sentence": "The artwork is on display.", "sentence_ja": "その芸術作品は展示されている。" },
+            { "english": "familiarise A with B", "japanese": "AをBに親しませる", "sentence": "I familiarised myself with the rules.", "sentence_ja": "私はルールに自分を慣れさせた（親しんだ）。" },
+            { "english": "criterion", "japanese": "基準", "sentence": "What is the criterion for selection?", "sentence_ja": "選考の基準は何ですか？" },
+            { "english": "mention", "japanese": "言及する", "sentence": "He mentioned your name.", "sentence_ja": "彼はあなたの名前に言及した。" },
+
+            // Q6
+            { "english": "outline", "japanese": "概要、あらすじ", "sentence": "She gave an outline of the plan.", "sentence_ja": "彼女は計画の概要を説明した。" },
+            { "english": "nervous", "japanese": "緊張した", "sentence": "I felt nervous before the exam.", "sentence_ja": "私は試験の前に緊張した。" },
+            { "english": "unwrap", "japanese": "包みを開ける", "sentence": "He unwrapped the gift.", "sentence_ja": "彼は贈り物の包みを開けた。" },
+            { "english": "filling", "japanese": "（料理の）中身、具", "sentence": "The pie has an apple filling.", "sentence_ja": "そのパイにはリンゴの中身が入っている。" },
+            { "english": "be taken back to", "japanese": "～（過去）に引き戻される", "sentence": "Listening to the song, I was taken back to my childhood.", "sentence_ja": "その歌を聴いて、私は子供時代に引き戻された。" },
+            { "english": "comforting", "japanese": "慰めとなる、ほっとする", "sentence": "Her words were comforting.", "sentence_ja": "彼女の言葉は慰めとなった。" },
+            { "english": "arcade", "japanese": "アーケード、商店街", "sentence": "We walked through the shopping arcade.", "sentence_ja": "私たちは商店街を歩いた。" },
+            { "english": "homemade", "japanese": "自家製の", "sentence": "I love homemade cookies.", "sentence_ja": "私は自家製クッキーが大好きだ。" },
+            { "english": "work up the courage", "japanese": "勇気を振り絞る", "sentence": "I worked up the courage to speak to her.", "sentence_ja": "私は勇気を振り絞って彼女に話しかけた。" },
+            { "english": "starving", "japanese": "非常に空腹な", "sentence": "I'm starving!", "sentence_ja": "腹ペコだ！" },
+            { "english": "regular", "japanese": "いつもの（客、注文）", "sentence": "He is a regular at this cafe.", "sentence_ja": "彼はこのカフェの常連客だ。" },
+            { "english": "retrace one's steps", "japanese": "来た道を引き返す", "sentence": "I retraced my steps to find my keys.", "sentence_ja": "私は鍵を見つけるために来た道を引き返した。" },
+            { "english": "shutter", "japanese": "シャッター", "sentence": "The store's shutters were down.", "sentence_ja": "その店のシャッターは下りていた。" },
+            { "english": "murmur", "japanese": "つぶやく", "sentence": "She murmured something quietly.", "sentence_ja": "彼女は静かに何かをつぶやいた。" },
+            { "english": "utter", "japanese": "（言葉を）発する", "sentence": "He didn't utter a word.", "sentence_ja": "彼は一言も発しなかった。" },
+            { "english": "nod", "japanese": "うなずく", "sentence": "She nodded in agreement.", "sentence_ja": "彼女は同意してうなずいた。" },
+            { "english": "eagerly", "japanese": "熱心に、しきりに", "sentence": "They waited eagerly for the news.", "sentence_ja": "彼らはその知らせを熱心に待った。" },
+            { "english": "vaguely", "japanese": "漠然と、かすかに", "sentence": "I vaguely remember him.", "sentence_ja": "私は漠然と彼を覚えている。" },
+            { "english": "familiar", "japanese": "見覚えのある、親しい", "sentence": "His face looks familiar.", "sentence_ja": "彼の顔に見覚えがある。" },
+            { "english": "smash", "japanese": "（ここでは）大成功させる、打ち破る", "sentence": "The movie was a smash hit.", "sentence_ja": "その映画は大ヒット（大成功）した。" },
+            { "english": "renewed", "japanese": "新たになった、回復した", "sentence": "He started with renewed energy.", "sentence_ja": "彼は新たなエネルギーで始めた。" },
+            { "english": "with a spring in one's step", "japanese": "足取り軽く、ウキウキして", "sentence": "He walked away with a spring in his step.", "sentence_ja": "彼は足取り軽く立ち去った。" },
+            { "english": "incident", "japanese": "出来事", "sentence": "It was an unfortunate incident.", "sentence_ja": "それは不幸な出来事だった。" },
+            { "english": "unfriendly", "japanese": "よそよそしい", "sentence": "The clerk was unfriendly.", "sentence_ja": "店員はよそよそしかった。" },
+            { "english": "rude", "japanese": "失礼な", "sentence": "It is rude to point at people.", "sentence_ja": "人を指差すのは失礼だ。" },
+            { "english": "disorganized", "japanese": "整理されていない、まとまりのない", "sentence": "His desk is always disorganized.", "sentence_ja": "彼の机はいつも整理されていない。" },
+
+            // Q7
+            { "english": "be absorbed in", "japanese": "～に没頭している", "sentence": "She was absorbed in the book.", "sentence_ja": "彼女はその本に没頭していた。" },
+            { "english": "likewise", "japanese": "同様に", "sentence": "Watch him and do likewise.", "sentence_ja": "彼を見て同様にしなさい。" },
+            { "english": "daydream", "japanese": "空想（する）", "sentence": "Stop daydreaming and focus.", "sentence_ja": "空想をやめて集中しなさい。" },
+            { "english": "focus", "japanese": "焦点、集中（する）", "sentence": "The camera's focus is off.", "sentence_ja": "カメラの焦点がずれている。" },
+            { "english": "task at hand", "japanese": "目の前の課題", "sentence": "Concentrate on the task at hand.", "sentence_ja": "目の前の課題に集中しなさい。" },
+            { "english": "engage in", "japanese": "～に従事する、行う", "sentence": "They engaged in a discussion.", "sentence_ja": "彼らは議論を行った。" },
+            { "english": "shift", "japanese": "移行、変化", "sentence": "There was a shift in public opinion.", "sentence_ja": "世論に変化があった。" },
+            { "english": "unrelated", "japanese": "関係のない", "sentence": "That is unrelated to the topic.", "sentence_ja": "それは話題と関係がない。" },
+            { "english": "mere", "japanese": "単なる", "sentence": "It is a mere coincidence.", "sentence_ja": "それは単なる偶然だ。" },
+            { "english": "harmful", "japanese": "有害な", "sentence": "Smoking is harmful to health.", "sentence_ja": "喫煙は健康に有害だ。" },
+            { "english": "influence", "japanese": "影響を及ぼす", "sentence": "Weather influences crops.", "sentence_ja": "天候は作物に影響を及ぼす。" },
+            { "english": "depression", "japanese": "憂鬱、うつ病", "sentence": "She suffered from depression.", "sentence_ja": "彼女はうつ病に苦しんだ。" },
+            { "english": "enrich", "japanese": "豊かにする", "sentence": "Reading enriches your mind.", "sentence_ja": "読書は心を豊かにする。" },
+            { "english": "generate", "japanese": "生み出す", "sentence": "The wind farm generates electricity.", "sentence_ja": "その風力発電所は電気を生み出す。" },
+            { "english": "apparent", "japanese": "明らかな", "sentence": "It became apparent that he was lying.", "sentence_ja": "彼が嘘をついていることが明らかになった。" },
+            { "english": "access", "japanese": "アクセスする、利用する", "sentence": "I can't access the internet.", "sentence_ja": "インターネットにアクセスできない。" },
+            { "english": "incubation", "japanese": "孵化、培養、（アイデアの）熟成", "sentence": "The incubation period is two weeks.", "sentence_ja": "潜伏期間（熟成期間）は2週間だ。" },
+            { "english": "sort through", "japanese": "～を整理する", "sentence": "I need to sort through my papers.", "sentence_ja": "私は書類を整理する必要がある。" },
+            { "english": "associate A with B", "japanese": "AとBを結びつけて考える", "sentence": "I associate summer with ice cream.", "sentence_ja": "私は夏とアイスクリームを結びつけて考える。" },
+            { "english": "solution", "japanese": "解決策", "sentence": "We found a solution to the problem.", "sentence_ja": "私たちは問題の解決策を見つけた。" },
+            { "english": "when least expected", "japanese": "全く予期していない時に", "sentence": "It happened when least expected.", "sentence_ja": "それは全く予期していない時に起こった。" },
+            { "english": "passive", "japanese": "受動的な", "sentence": "He plays a passive role.", "sentence_ja": "彼は受動的な役割を果たしている。" },
+            { "english": "neuroimaging", "japanese": "神経画像法", "sentence": "Neuroimaging helps study the brain.", "sentence_ja": "神経画像法は脳の研究に役立つ。" },
+            { "english": "region", "japanese": "領域", "sentence": "This region is known for wine.", "sentence_ja": "この地域（領域）はワインで知られている。" },
+            { "english": "perform", "japanese": "実行する", "sentence": "The computer performs tasks quickly.", "sentence_ja": "そのコンピュータはタスクを素早く実行する。" },
+            { "english": "tip", "japanese": "ヒント、助言", "sentence": "He gave me a useful tip.", "sentence_ja": "彼は私に役立つヒントをくれた。" },
+            { "english": "expand", "japanese": "広げる、拡大する", "sentence": "The company expanded its business.", "sentence_ja": "その会社は事業を拡大した。" },
+            { "english": "undemanding", "japanese": "厳しくない、容易な", "sentence": "It was an undemanding job.", "sentence_ja": "それは厳しくない（楽な）仕事だった。" },
+            { "english": "spread out", "japanese": "広がる", "sentence": "The city is spread out.", "sentence_ja": "その都市は広がっている。" },
+            { "english": "receptive", "japanese": "受容的な、受け入れやすい", "sentence": "She was receptive to new ideas.", "sentence_ja": "彼女は新しいアイデアを受け入れやすかった。" },
+            { "english": "random", "japanese": "無作為の", "sentence": "He picked a number at random.", "sentence_ja": "彼は無作為に数字を選んだ。" },
+            { "english": "occurrence", "japanese": "発生", "sentence": "It is a rare occurrence.", "sentence_ja": "それは稀な発生（出来事）だ。" },
+            { "english": "enhance", "japanese": "高める", "sentence": "Music can enhance the atmosphere.", "sentence_ja": "音楽は雰囲気を高めることができる。" },
+            { "english": "complicated", "japanese": "複雑な", "sentence": "The instructions were complicated.", "sentence_ja": "説明書は複雑だった。" },
+            { "english": "consciousness", "japanese": "意識", "sentence": "He lost consciousness.", "sentence_ja": "彼は意識を失った。" },
+            { "english": "alter", "japanese": "変える", "sentence": "The dress was altered to fit her.", "sentence_ja": "ドレスは彼女に合うように変えられた（直された）。" },
+
+            // Q8
+            { "english": "take a position", "japanese": "立場をとる", "sentence": "You need to take a position on this issue.", "sentence_ja": "あなたはこの問題について立場をとる必要がある。" },
+            { "english": "relationship", "japanese": "関係", "sentence": "They have a good relationship.", "sentence_ja": "彼らは良い関係にある。" },
+            { "english": "benefit", "japanese": "利益を与える、ためになる", "sentence": "The new law benefits everyone.", "sentence_ja": "新しい法律は全員のためになる。" },
+            { "english": "discourage", "japanese": "落胆させる、思いとどまらせる", "sentence": "Don't let failure discourage you.", "sentence_ja": "失敗に落胆しないで。" },
+            { "english": "performance", "japanese": "成績、パフォーマンス", "sentence": "His performance improved significantly.", "sentence_ja": "彼の成績は著しく向上した。" },
+            { "english": "maximize", "japanese": "最大化する", "sentence": "We must maximize our profits.", "sentence_ja": "私たちは利益を最大化しなければならない。" },
+            { "english": "fraction", "japanese": "ほんの少し、断片", "sentence": "It cost a fraction of the original price.", "sentence_ja": "それは元の価格のほんの少しの費用だった。" },
+            { "english": "fascinated", "japanese": "魅了された", "sentence": "I was fascinated by the story.", "sentence_ja": "私はその物語に魅了された。" },
+            { "english": "achievement", "japanese": "達成、業績", "sentence": "Winning the prize was a great achievement.", "sentence_ja": "その賞を取ったことは偉大な達成だった。" },
+            { "english": "intense", "japanese": "激しい", "sentence": "The heat was intense.", "sentence_ja": "暑さは激しかった。" },
+            { "english": "injustice", "japanese": "不公平、不正", "sentence": "They fought against injustice.", "sentence_ja": "彼らは不正と戦った。" },
+            { "english": "transition", "japanese": "移行、変遷", "sentence": "The transition to the new system went smoothly.", "sentence_ja": "新システムへの移行はスムーズに進んだ。" },
+            { "english": "innovation", "japanese": "革新", "sentence": "Innovation drives progress.", "sentence_ja": "革新が進歩を推進する。" },
+            { "english": "summarize", "japanese": "要約する", "sentence": "Please summarize the article.", "sentence_ja": "記事を要約してください。" },
+            { "english": "barrier", "japanese": "障壁", "sentence": "Language can be a barrier.", "sentence_ja": "言語は障壁になり得る。" },
+            { "english": "integrity", "japanese": "高潔さ、完全性、（競技の）健全性", "sentence": "We must protect the integrity of the sport.", "sentence_ja": "私たちはスポーツの健全性を守らなければならない。" },
+            { "english": "threat", "japanese": "脅威", "sentence": "Pollution is a threat to nature.", "sentence_ja": "汚染は自然への脅威だ。" },
+            { "english": "ensure", "japanese": "確実にする", "sentence": "Please ensure that the door is locked.", "sentence_ja": "ドアが施錠されていることを確実にしてください。" },
+            { "english": "concrete", "japanese": "具体的な", "sentence": "We need a concrete plan.", "sentence_ja": "具体的な計画が必要だ。" },
+            { "english": "specification", "japanese": "仕様、規定", "sentence": "The product meets the specifications.", "sentence_ja": "その製品は仕様を満たしている。" },
+            { "english": "regulation", "japanese": "規制", "sentence": "There are strict regulations on safety.", "sentence_ja": "安全に関する厳しい規制がある。" },
+            { "english": "measure", "japanese": "対策、措置", "sentence": "They took measures to stop the leak.", "sentence_ja": "彼らは漏れを止めるための措置をとった。" },
+            { "english": "investigate", "japanese": "調査する", "sentence": "Police are investigating the accident.", "sentence_ja": "警察は事故を調査している。" },
+            { "english": "burden", "japanese": "負担", "sentence": "I don't want to be a burden.", "sentence_ja": "私は負担になりたくない。" },
+            { "english": "motivate", "japanese": "動機づける", "sentence": "The coach motivates the players.", "sentence_ja": "コーチは選手たちを動機づける。" },
+            { "english": "maintain", "japanese": "維持する", "sentence": "It is hard to maintain a healthy diet.", "sentence_ja": "健康的な食事を維持するのは難しい。" },
+            { "english": "evident", "japanese": "明白な", "sentence": "It was evident that she was tired.", "sentence_ja": "彼女が疲れているのは明白だった。" }
+        ];
+
+        // --- APP STATE ---
+        let selectedWords = [];
+        let currentWordIndex = 0;
+        let learningMode = 'word';
+        let quizQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let incorrectAnswers = [];
+        let voices = [];
+        let recognition;
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordedAudioURL = null;
+
+        // --- DOM Elements ---
+        const els = {
+            setupSection: document.getElementById('setup-section'),
+            learningSection: document.getElementById('learning-section'),
+            testOptionsSection: document.getElementById('test-options-section'),
+            quizSection: document.getElementById('quiz-section'),
+            resultsSection: document.getElementById('results-section'),
+            wordList: document.getElementById('word-list'),
+            flashcardContainer: document.getElementById('flashcard-container'),
+            englishText: document.getElementById('english-text'),
+            japaneseWrapper: document.getElementById('japanese-wrapper'),
+            japaneseText: document.getElementById('japanese-text'),
+            progressIndicator: document.getElementById('progress-indicator'),
+            illustrationArea: document.getElementById('illustration-area'),
+            pronunciationFeedback: document.getElementById('pronunciation-feedback-container'),
+            micIcon: document.getElementById('mic-icon'),
+            recordingPlayer: document.getElementById('recording-player')
+        };
+
+        // --- INIT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderWordList();
+            initSpeech();
+            switchSection('setup');
+        });
+
+        // --- FUNCTIONS ---
+        function renderWordList() {
+            els.wordList.innerHTML = '';
+            vocabularyData.forEach((word, index) => {
+                const div = document.createElement('div');
+                div.className = 'relative flex items-start p-3 bg-white border border-slate-200 rounded-lg hover:border-brand-300 transition-colors cursor-pointer group';
+                div.innerHTML = `
+                    <div class="flex items-center h-5">
+                        <input type="checkbox" class="word-checkbox" data-index="${index}">
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label class="font-bold text-slate-800 block cursor-pointer group-hover:text-brand-600">${word.english}</label>
+                        <p class="text-slate-500 text-xs mt-1 cursor-pointer">${word.japanese}</p>
+                    </div>
+                `;
+                div.addEventListener('click', (e) => {
+                    if (e.target.type !== 'checkbox') {
+                        const cb = div.querySelector('input');
+                        cb.checked = !cb.checked;
+                    }
+                });
+                els.wordList.appendChild(div);
+            });
+        }
+
+        function switchSection(name) {
+            ['setupSection', 'learningSection', 'testOptionsSection', 'quizSection', 'resultsSection'].forEach(k => {
+                els[k].classList.add('hidden');
+                els[k].classList.remove('animate-fade-in');
+            });
+            const target = els[name + 'Section'];
+            target.classList.remove('hidden');
+            requestAnimationFrame(() => target.classList.add('animate-fade-in'));
+        }
+
+        // --- LEARNING LOGIC ---
+        function updateCard() {
+            const word = selectedWords[currentWordIndex];
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            
+            // Reset View
+            els.japaneseWrapper.classList.remove('opacity-100', 'translate-y-0');
+            els.japaneseWrapper.classList.add('opacity-0', 'translate-y-4');
+            els.pronunciationFeedback.innerHTML = '';
+            els.englishText.className = "text-3xl sm:text-4xl md:text-5xl font-bold text-slate-800 mb-6 leading-tight select-text";
+
+            if (mode === 'sentence' && word.sentence) {
+                els.illustrationArea.classList.remove('hidden');
+                // Highlight target word logic
+                // Simple approach: split sentence by word, find fuzzy match, or just display raw
+                // Let's try to highlight the word in the sentence
+                const escapedWord = word.english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').split(' ')[0]; 
+                const regex = new RegExp(`(${escapedWord}\\w*)`, 'gi');
+                
+                // Fallback if regex fails to match simply (e.g. phrases)
+                let htmlSentence = word.sentence.replace(regex, '<span class="text-brand-600 border-b-2 border-brand-200">$1</span>');
+                // If the phrase is multi-word, try to match the whole phrase
+                if (word.english.includes(' ')) {
+                     const escapedPhrase = word.english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                     const phraseRegex = new RegExp(`(${escapedPhrase})`, 'gi');
+                     if(phraseRegex.test(word.sentence)) {
+                        htmlSentence = word.sentence.replace(phraseRegex, '<span class="text-brand-600 border-b-2 border-brand-200">$1</span>');
+                     }
+                }
+
+                els.englishText.innerHTML = htmlSentence;
+                els.japaneseText.innerHTML = word.sentence_ja || word.japanese;
+                els.englishText.classList.remove('text-5xl');
+                els.englishText.classList.add('text-2xl', 'md:text-3xl');
+            } else {
+                els.illustrationArea.classList.add('hidden');
+                els.englishText.textContent = word.english;
+                els.japaneseText.textContent = word.japanese;
+            }
+
+            els.progressIndicator.textContent = `${currentWordIndex + 1} / ${selectedWords.length}`;
+            
+            // Button States
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            prevBtn.disabled = currentWordIndex === 0;
+            nextBtn.disabled = currentWordIndex === selectedWords.length - 1;
+            prevBtn.classList.toggle('opacity-50', prevBtn.disabled);
+            nextBtn.classList.toggle('opacity-50', nextBtn.disabled);
+        }
+
+        // --- QUIZ LOGIC ---
+        function generateQuiz(count) {
+            const pool = [...selectedWords].sort(() => 0.5 - Math.random()).slice(0, count);
+            quizQuestions = pool.map(w => {
+                const correct = w.japanese;
+                const distractors = vocabularyData
+                    .filter(x => x.japanese !== correct)
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, 3)
+                    .map(x => x.japanese);
+                return {
+                    q: w.english,
+                    correct,
+                    opts: [correct, ...distractors].sort(() => 0.5 - Math.random())
+                };
+            });
+            score = 0;
+            currentQuestionIndex = 0;
+            incorrectAnswers = [];
+            showQuizQuestion();
+            switchSection('quiz');
+        }
+
+        function showQuizQuestion() {
+            const q = quizQuestions[currentQuestionIndex];
+            document.getElementById('quiz-question').textContent = q.q;
+            document.getElementById('quiz-progress').textContent = `${currentQuestionIndex + 1}/${quizQuestions.length}`;
+            const optsEl = document.getElementById('quiz-options');
+            optsEl.innerHTML = '';
+            document.getElementById('feedback').innerHTML = '';
+            document.getElementById('next-question-btn').classList.add('hidden');
+
+            q.opts.forEach(opt => {
+                const btn = document.createElement('div');
+                btn.className = 'quiz-option text-lg font-medium';
+                btn.textContent = opt;
+                btn.onclick = () => handleAnswer(btn, opt, q);
+                optsEl.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(btn, ans, q) {
+            if (document.querySelector('.quiz-option.correct')) return; 
+
+            const isCorrect = ans === q.correct;
+            if (isCorrect) {
+                btn.classList.add('correct');
+                document.getElementById('feedback').innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle"></i> 正解!</span>';
+                score++;
+            } else {
+                btn.classList.add('incorrect');
+                [...document.querySelectorAll('.quiz-option')].forEach(el => {
+                    if (el.textContent === q.correct) el.classList.add('correct');
+                });
+                document.getElementById('feedback').innerHTML = `<span class="text-red-500"><i class="fas fa-times-circle"></i> 正解: ${q.correct}</span>`;
+                incorrectAnswers.push({q: q.q, a: q.correct});
+            }
+            document.getElementById('next-question-btn').classList.remove('hidden');
+        }
+
+        // --- AUDIO ---
+        function initSpeech() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    voices = window.speechSynthesis.getVoices();
+                };
+            }
+            
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!window.SpeechRecognition) {
+                document.getElementById('record-btn').classList.add('btn-disabled');
+            }
+        }
+
+        function speakText(text) {
+            // Remove HTML tags for speaking
+            const cleanText = text.replace(/<[^>]*>/g, '');
+            const u = new SpeechSynthesisUtterance(cleanText);
+            u.lang = 'en-US';
+            u.rate = 0.9;
+            // Prioritize high quality Google US voice
+            const v = voices.find(x => x.name.includes('Google US English')) || voices.find(x => x.lang === 'en-US');
+            if (v) u.voice = v;
+            window.speechSynthesis.speak(u);
+        }
+
+        // --- EVENT HANDLERS ---
+        document.getElementById('select-all').onclick = () => document.querySelectorAll('.word-checkbox').forEach(c => c.checked = true);
+        document.getElementById('deselect-all').onclick = () => document.querySelectorAll('.word-checkbox').forEach(c => c.checked = false);
+        
+        document.getElementById('start-learning-btn').onclick = () => {
+            const checks = document.querySelectorAll('.word-checkbox:checked');
+            if (!checks.length) return alert('単語を選択してください');
+            selectedWords = Array.from(checks).map(c => vocabularyData[c.dataset.index]);
+            currentWordIndex = 0;
+            updateCard();
+            switchSection('learning');
+        };
+
+        document.getElementById('quick-test-btn').onclick = () => {
+            const checks = document.querySelectorAll('.word-checkbox:checked');
+            if (!checks.length) return alert('単語を選択してください');
+            selectedWords = Array.from(checks).map(c => vocabularyData[c.dataset.index]);
+            
+            const div = document.getElementById('test-choices');
+            div.innerHTML = '';
+            [10, 20, selectedWords.length].filter((v, i, a) => a.indexOf(v) === i && v <= selectedWords.length).sort((a,b)=>a-b).forEach(n => {
+                const b = document.createElement('button');
+                b.className = 'btn btn-primary w-24 h-24 flex flex-col items-center justify-center text-xl shadow-lg';
+                b.innerHTML = `<span class="font-bold text-3xl">${n}</span><span class="text-xs">問</span>`;
+                b.onclick = () => generateQuiz(n);
+                div.appendChild(b);
+            });
+            switchSection('testOptions');
+        };
+
+        els.flashcardContainer.onclick = () => {
+            els.japaneseWrapper.classList.toggle('opacity-0');
+            els.japaneseWrapper.classList.toggle('opacity-100');
+            els.japaneseWrapper.classList.toggle('translate-y-4');
+            els.japaneseWrapper.classList.toggle('translate-y-0');
+        };
+
+        document.getElementById('prev-btn').onclick = () => {
+            if (currentWordIndex > 0) { currentWordIndex--; updateCard(); }
+        };
+        document.getElementById('next-btn').onclick = () => {
+            if (currentWordIndex < selectedWords.length - 1) { currentWordIndex++; updateCard(); }
+        };
+        document.getElementById('speak-btn').onclick = (e) => {
+            e.stopPropagation();
+            speakText(els.englishText.textContent);
+        };
+
+        // Recording with Lenient Scoring
+        document.getElementById('record-btn').onclick = async (e) => {
+            e.stopPropagation();
+            if (!window.SpeechRecognition) return alert('このブラウザは音声認識をサポートしていません');
+            
+            if (recognition && recognition.started) {
+                recognition.stop();
+                if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/wav' });
+                    recordedAudioURL = URL.createObjectURL(blob);
+                    els.recordingPlayer.src = recordedAudioURL;
+                    document.getElementById('play-recording-btn').disabled = false;
+                    document.getElementById('play-recording-btn').classList.remove('btn-disabled');
+                    els.micIcon.classList.remove('recording');
+                    els.micIcon.className = 'fas fa-microphone text-2xl';
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                mediaRecorder.start();
+
+                recognition = new SpeechRecognition();
+                recognition.lang = 'en-US';
+                recognition.started = true;
+                els.micIcon.className = 'fas fa-stop text-2xl';
+                els.micIcon.classList.add('recording');
+                els.pronunciationFeedback.innerHTML = '<span class="text-brand-500 animate-pulse">Listening...</span>';
+
+                recognition.onresult = (ev) => {
+                    const transcript = ev.results[0][0].transcript;
+                    const target = els.englishText.textContent.replace(/<[^>]*>/g, '');
+                    
+                    // Levenshtein Distance for lenient scoring
+                    const dist = (s, t) => {
+                        if (!s.length) return t.length;
+                        if (!t.length) return s.length;
+                        const arr = [];
+                        for (let i = 0; i <= t.length; i++) {
+                            arr[i] = [i];
+                            for (let j = 1; j <= s.length; j++) {
+                                arr[i][j] = Math.min(arr[i - 1][j] + 1, arr[i][j - 1] + 1, arr[i - 1][j - 1] + (s[j - 1].toLowerCase() === t[i - 1].toLowerCase() ? 0 : 1));
+                            }
+                        }
+                        return arr[t.length][s.length];
+                    };
+                    
+                    // Clean strings for comparison (remove punctuation, lower case)
+                    const cleanT = transcript.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g,"").trim();
+                    const cleanTarget = target.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g,"").trim();
+
+                    const d = dist(cleanT, cleanTarget);
+                    const max = Math.max(cleanT.length, cleanTarget.length);
+                    // Lenient Score Calculation
+                    const scoreVal = Math.max(0, Math.round((1 - d / max) * 100));
+                    
+                    let msg = '', color = '';
+                    if (scoreVal > 80) { msg = 'Excellent!'; color = 'text-green-600'; }
+                    else if (scoreVal > 50) { msg = 'Good job!'; color = 'text-blue-500'; }
+                    else { msg = 'Try again'; color = 'text-red-500'; }
+                    
+                    els.pronunciationFeedback.innerHTML = `
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs text-slate-400">You said: "${transcript}"</span>
+                            <span class="text-xl font-bold ${color}">${msg} (${scoreVal}%)</span>
+                        </div>
+                    `;
+                };
+                recognition.onend = () => {
+                    recognition.started = false;
+                    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+                };
+                recognition.start();
+
+            } catch (err) {
+                console.error(err);
+                alert('マイクへのアクセスを許可してください');
+            }
+        };
+
+        document.getElementById('play-recording-btn').onclick = (e) => {
+            e.stopPropagation();
+            els.recordingPlayer.play();
+        };
+
+        document.getElementById('back-to-learning-btn').onclick = () => switchSection('setup');
+        document.getElementById('back-to-setup-btn').onclick = () => switchSection('setup');
+        document.getElementById('back-to-home-btn').onclick = () => switchSection('setup');
+        document.getElementById('abort-test-btn').onclick = () => switchSection('setup');
+        
+        document.getElementById('next-question-btn').onclick = () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < quizQuestions.length) {
+                showQuizQuestion();
+            } else {
+                document.getElementById('score-percentage').textContent = Math.round(score / quizQuestions.length * 100) + '%';
+                document.getElementById('score-text').textContent = `${score} / ${quizQuestions.length} 正解`;
+                const list = document.getElementById('incorrect-answers-list');
+                list.innerHTML = '';
+                if (incorrectAnswers.length) {
+                    document.getElementById('incorrect-answers-container').classList.remove('hidden');
+                    incorrectAnswers.forEach(item => {
+                        const li = document.createElement('li');
+                        li.className = "bg-white p-3 rounded border border-red-100 text-sm";
+                        li.innerHTML = `<div class="font-bold text-slate-800">${item.q}</div><div class="text-red-500">正解: ${item.a}</div>`;
+                        list.appendChild(li);
+                    });
+                } else {
+                    document.getElementById('incorrect-answers-container').classList.add('hidden');
+                }
+                switchSection('results');
+            }
+        };
+
+        document.getElementById('start-test-btn').onclick = () => {
+            generateQuiz(Math.min(10, selectedWords.length));
+        };
+        
+        document.getElementById('restart-btn').onclick = () => switchSection('setup');
+
+        // PDF Generation
+        document.getElementById('download-pdf-btn').onclick = () => document.getElementById('pdf-modal').classList.remove('hidden');
+        document.getElementById('close-modal-btn').onclick = () => document.getElementById('pdf-modal').classList.add('hidden');
+        document.getElementById('close-modal-icon').onclick = () => document.getElementById('pdf-modal').classList.add('hidden');
+
+        const pdfActions = [
+            { id: 'download-list-btn', title: '単語リスト', content: (ws) => `<ul style="column-count:2; gap:40px;">${ws.map(w => `<li style="margin-bottom:10px;"><b>${w.english}</b>: ${w.japanese}</li>`).join('')}</ul>` },
+            { id: 'download-en-quiz-btn', title: '英単語テスト', content: (ws) => `<h2>問題</h2><ol>${ws.map(w => `<li style="margin-bottom:15px;">${w.japanese}: ______________</li>`).join('')}</ol><h2 style="page-break-before:always;">解答</h2><ol>${ws.map(w => `<li>${w.english}</li>`).join('')}</ol>` },
+            { id: 'download-ja-quiz-btn', title: '和訳テスト', content: (ws) => `<h2>問題</h2><ol>${ws.map(w => `<li style="margin-bottom:15px;">${w.english}: ______________</li>`).join('')}</ol><h2 style="page-break-before:always;">解答</h2><ol>${ws.map(w => `<li>${w.japanese}</li>`).join('')}</ol>` },
+            { id: 'download-mixed-quiz-btn', title: '混合テスト', content: (ws) => {
+                const shuf = [...ws].sort(()=>0.5-Math.random());
+                const qs = shuf.map(w => Math.random()>0.5 ? `${w.japanese}: ______________` : `${w.english}: ______________`);
+                const as = shuf.map((w,i) => qs[i].startsWith(w.japanese) ? w.english : w.japanese);
+                return `<h2>問題</h2><ol>${qs.map(q=>`<li style="margin-bottom:15px;">${q}</li>`).join('')}</ol><h2 style="page-break-before:always;">解答</h2><ol>${as.map(a=>`<li>${a}</li>`).join('')}</ol>`;
+            }},
+            { id: 'download-sentence-quiz-btn', title: '例文穴埋め', content: (ws) => {
+                const valid = ws.filter(w => w.sentence);
+                if (!valid.length) return '例文がありません';
+                return `<h2>問題</h2><ol>${valid.map(w => {
+                    const k = w.english.split(' ')[0].replace(/[^\w]/g,'');
+                    // Avoid duplicate numbering by using standard ol which handles 1. 2. 3. automatically
+                    return `<li style="margin-bottom:15px;">${w.sentence.replace(new RegExp(k+'\\w*','i'), '_______')}<br><small>${w.sentence_ja||w.japanese}</small></li>`;
+                }).join('')}</ol><h2 style="page-break-before:always;">解答</h2><ol>${valid.map(w=>`<li>${w.english}</li>`).join('')}</ol>`;
+            }},
+            { id: 'download-sentence-mixed-quiz-btn', title: '例文実戦テスト', content: (ws) => {
+                const valid = ws.filter(w => w.sentence);
+                if (!valid.length) return '例文がありません';
+                const qs = [], as = [];
+                valid.sort(()=>0.5-Math.random()).forEach(w => {
+                    const k = w.english.split(' ')[0].replace(/[^\w]/g,'');
+                    if(Math.random()>0.5) {
+                        qs.push(`${w.sentence.replace(new RegExp(k+'\\w*','i'), '_______')}<br><small>${w.sentence_ja||w.japanese}</small>`);
+                        as.push(w.english);
+                    } else {
+                        qs.push(`${w.sentence.replace(new RegExp(`(${k}\\w*)`,'i'), '<u>$1</u>')}<br>下線部和訳: __________________`);
+                        as.push(w.japanese);
+                    }
+                });
+                return `<h2>問題</h2><ol>${qs.map(q=>`<li style="margin-bottom:15px;">${q}</li>`).join('')}</ol><h2 style="page-break-before:always;">解答</h2><ol>${as.map(a=>`<li>${a}</li>`).join('')}</ol>`;
+            }}
+        ];
+
+        pdfActions.forEach(act => {
+            document.getElementById(act.id).onclick = () => {
+                const checks = document.querySelectorAll('.word-checkbox:checked');
+                if (!checks.length) return alert('単語を選択してください');
+                const words = Array.from(checks).map(c => vocabularyData[c.dataset.index]);
+                const w = window.open('', '_blank');
+                // Ensuring no duplicate numbering by using plain OL and LI logic
+                w.document.write(`<html><head><title>${act.title}</title><style>body{font-family:sans-serif;margin:30px;}h2{border-bottom:1px solid #000;padding-bottom:5px;} ol { padding-left: 20px; } li { margin-bottom: 10px; }</style></head><body><h1>${act.title}</h1>${act.content(words)}</body></html>`);
+                w.document.close();
+                setTimeout(() => w.print(), 500);
+            };
+        });
+
+    </script>
+</body>
+</html>
