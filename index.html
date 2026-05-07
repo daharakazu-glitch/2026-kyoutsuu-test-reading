@@ -684,6 +684,9 @@
             document.getElementById('feedback').innerHTML = '';
             document.getElementById('next-question-btn').classList.add('hidden');
 
+            // 問題が表示されたときに音声を再生する
+            speakText(q.q);
+
             q.opts.forEach(opt => {
                 const btn = document.createElement('div');
                 btn.className = 'quiz-option text-lg font-medium';
@@ -715,6 +718,8 @@
         // --- AUDIO ---
         function initSpeech() {
             if ('speechSynthesis' in window) {
+                // 初回でもvoicesを取得しておく
+                voices = window.speechSynthesis.getVoices();
                 window.speechSynthesis.onvoiceschanged = () => {
                     voices = window.speechSynthesis.getVoices();
                 };
@@ -727,14 +732,23 @@
         }
 
         function speakText(text) {
+            // 再生がスタックするのを防ぐために一度キャンセルする
+            window.speechSynthesis.cancel();
+            
             // Remove HTML tags for speaking
             const cleanText = text.replace(/<[^>]*>/g, '');
             const u = new SpeechSynthesisUtterance(cleanText);
             u.lang = 'en-US';
             u.rate = 0.9;
+            
+            if (voices.length === 0) {
+                voices = window.speechSynthesis.getVoices();
+            }
+            
             // Prioritize high quality Google US voice
             const v = voices.find(x => x.name.includes('Google US English')) || voices.find(x => x.lang === 'en-US');
             if (v) u.voice = v;
+            
             window.speechSynthesis.speak(u);
         }
 
