@@ -729,6 +729,9 @@
         }
 
         function speakText(text) {
+            // iOS等でスリープした音声エンジンを起こし、スタックしたキューをクリアするために必須（これがないと無音になります）
+            window.speechSynthesis.cancel();
+
             // Remove HTML tags for speaking
             const cleanText = text.replace(/<[^>]*>/g, '');
             const u = new SpeechSynthesisUtterance(cleanText);
@@ -742,18 +745,21 @@
             }
             
             // Google音声か標準の英語音声を優先
-            let v = currentVoices.find(x => x.name.includes('Google US English')) || currentVoices.find(x => x.lang === 'en-US');
-            
-            // それでも無ければ何らかの英語音声を指定
-            if (!v && currentVoices.length > 0) {
-                v = currentVoices.find(x => x.lang && x.lang.startsWith('en'));
+            let v = null;
+            if (currentVoices && currentVoices.length > 0) {
+                // Arrayでない環境（古いSafariなど）に備えてArray.fromを使用
+                const voiceArray = Array.from(currentVoices);
+                v = voiceArray.find(x => x.name.includes('Google US English')) || voiceArray.find(x => x.lang === 'en-US');
+                if (!v) {
+                    v = voiceArray.find(x => x.lang && x.lang.startsWith('en'));
+                }
             }
             
             if (v) {
                 u.voice = v;
             }
             
-            // cancel()はiOS Safariでサイレントエラー（無音）を引き起こす原因となるため使用せず、そのまま同期再生する
+            // 必ず同期的に実行する
             window.speechSynthesis.speak(u);
         }
 
