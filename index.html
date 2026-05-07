@@ -741,21 +741,22 @@
             }
             
             // Prioritize high quality Google US voice
-            const v = voices.find(x => x.name.includes('Google US English')) || voices.find(x => x.lang === 'en-US');
+            let v = voices.find(x => x.name.includes('Google US English')) || voices.find(x => x.lang === 'en-US');
+            
+            // en-USが見つからない場合、何らかの英語音声を探す
+            if (!v && voices.length > 0) {
+                v = voices.find(x => x.lang && x.lang.startsWith('en'));
+            }
+            
             if (v) {
                 u.voice = v;
             }
             
-            // 既存の再生があればキャンセルしてスタックを防ぐ（ただし必要な場合のみ）
-            if (window.speechSynthesis.speaking) {
-                window.speechSynthesis.cancel();
-                // Safariバグ対策のため、少し待ってから再生
-                setTimeout(() => {
-                    window.speechSynthesis.speak(u);
-                }, 50);
-            } else {
-                window.speechSynthesis.speak(u);
-            }
+            // iOS等で読み上げキューがスタックして無音になるバグを防ぐため、必ずキャンセルを呼ぶ
+            window.speechSynthesis.cancel();
+            
+            // 非同期（setTimeoutなど）で呼ぶとiOSでユーザー操作外とみなされブロックされるため、必ず同期的に実行する
+            window.speechSynthesis.speak(u);
         }
 
         // --- EVENT HANDLERS ---
