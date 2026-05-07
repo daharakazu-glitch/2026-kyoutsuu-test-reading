@@ -735,27 +735,25 @@
             u.lang = 'en-US';
             u.rate = 0.9;
             
-            // onvoiceschangedが発火しなかった場合のフォールバック
-            if (!voices || voices.length === 0) {
-                voices = window.speechSynthesis.getVoices();
+            let currentVoices = voices;
+            // 音声リストが空の場合は再取得
+            if (!currentVoices || currentVoices.length === 0) {
+                currentVoices = window.speechSynthesis.getVoices();
             }
             
-            // Prioritize high quality Google US voice
-            let v = voices.find(x => x.name.includes('Google US English')) || voices.find(x => x.lang === 'en-US');
+            // Google音声か標準の英語音声を優先
+            let v = currentVoices.find(x => x.name.includes('Google US English')) || currentVoices.find(x => x.lang === 'en-US');
             
-            // en-USが見つからない場合、何らかの英語音声を探す
-            if (!v && voices.length > 0) {
-                v = voices.find(x => x.lang && x.lang.startsWith('en'));
+            // それでも無ければ何らかの英語音声を指定
+            if (!v && currentVoices.length > 0) {
+                v = currentVoices.find(x => x.lang && x.lang.startsWith('en'));
             }
             
             if (v) {
                 u.voice = v;
             }
             
-            // iOS等で読み上げキューがスタックして無音になるバグを防ぐため、必ずキャンセルを呼ぶ
-            window.speechSynthesis.cancel();
-            
-            // 非同期（setTimeoutなど）で呼ぶとiOSでユーザー操作外とみなされブロックされるため、必ず同期的に実行する
+            // cancel()はiOS Safariでサイレントエラー（無音）を引き起こす原因となるため使用せず、そのまま同期再生する
             window.speechSynthesis.speak(u);
         }
 
