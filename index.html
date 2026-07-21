@@ -199,7 +199,14 @@
             </div>
 
             <div class="mt-auto">
-                <div class="flex flex-col items-center mb-4">
+                <div class="flex flex-col items-center mb-4 space-y-2">
+                    <!-- 練習モード切り替え -->
+                    <div class="flex bg-slate-100 p-0.5 rounded-lg text-[10px] sm:text-xs font-medium">
+                        <button id="mode-both-btn" class="px-2.5 py-1 rounded-md bg-white text-slate-800 shadow-sm transition-all focus:outline-none">採点＋録音</button>
+                        <button id="mode-grade-btn" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-800 transition-all focus:outline-none">採点のみ</button>
+                        <button id="mode-record-btn" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-800 transition-all focus:outline-none">録音再生のみ</button>
+                    </div>
+
                     <div class="flex items-center space-x-2 text-xs text-slate-500">
                         <i class="fas fa-sliders-h"></i>
                         <span>マイク入力先:</span>
@@ -557,6 +564,7 @@
         let analyser = null;
         let maxVolume = 0;
         let volumeCheckInterval = null;
+        let practiceModeType = 'both'; // 'both', 'grade', 'record'
 
         // --- DOM Elements ---
         const els = {
@@ -589,6 +597,42 @@
                     localStorage.setItem('selectedDeviceId', micSelect.value);
                 };
             }
+
+            // Wire up practice mode toggle buttons
+            const modeBoth = document.getElementById('mode-both-btn');
+            const modeGrade = document.getElementById('mode-grade-btn');
+            const modeRecord = document.getElementById('mode-record-btn');
+
+            const setPracticeMode = (type) => {
+                practiceModeType = type;
+                localStorage.setItem('practiceModeType', type);
+
+                [modeBoth, modeGrade, modeRecord].forEach(btn => {
+                    if (btn) {
+                        btn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-800 transition-all focus:outline-none';
+                    }
+                });
+
+                if (type === 'both') {
+                    if (modeBoth) modeBoth.className = 'px-2.5 py-1 rounded-md bg-white text-slate-800 shadow-sm transition-all focus:outline-none';
+                    document.getElementById('play-recording-btn').classList.remove('hidden');
+                } else if (type === 'grade') {
+                    if (modeGrade) modeGrade.className = 'px-2.5 py-1 rounded-md bg-white text-slate-800 shadow-sm transition-all focus:outline-none';
+                    document.getElementById('play-recording-btn').classList.add('hidden');
+                    els.recordingPlayer.classList.add('hidden');
+                } else if (type === 'record') {
+                    if (modeRecord) modeRecord.className = 'px-2.5 py-1 rounded-md bg-white text-slate-800 shadow-sm transition-all focus:outline-none';
+                    document.getElementById('play-recording-btn').classList.remove('hidden');
+                }
+            };
+
+            if (modeBoth) modeBoth.onclick = () => setPracticeMode('both');
+            if (modeGrade) modeGrade.onclick = () => setPracticeMode('grade');
+            if (modeRecord) modeRecord.onclick = () => setPracticeMode('record');
+
+            // Restore previously selected practice mode
+            const savedMode = localStorage.getItem('practiceModeType') || 'both';
+            setPracticeMode(savedMode);
 
             switchSection('setup');
         });
@@ -922,13 +966,27 @@
 
             els.micIcon.classList.remove('recording');
             els.micIcon.className = 'fas fa-microphone text-2xl';
+
+            // In grade-only mode, we call displayFinalFeedback directly since MediaRecorder onstop won't trigger
+            if (practiceModeType === 'grade') {
+                setTimeout(() => {
+                    displayFinalFeedback();
+                }, 100);
+            }
         }
 
         // Helper to evaluate and display final feedback
         function displayFinalFeedback() {
             let feedbackHTML = '';
 
-            if (recognitionResultText) {
+            if (practiceModeType === 'record') {
+                feedbackHTML = `
+                    <div class="flex flex-col items-center">
+                        <span class="text-green-600 font-medium"><i class="fas fa-check-circle mr-1"></i>録音を保存しました。</span>
+                        <span class="text-xs text-slate-400 text-center">下の再生バーから自分の声を確認できます。</span>
+                    </div>
+                `;
+            } else if (recognitionResultText) {
                 const transcript = recognitionResultText;
                 const target = els.englishText.textContent.replace(/<[^>]*>/g, '');
 
@@ -1013,8 +1071,8 @@
                 `;
             }
 
-            // Append volume warning if no signal was captured during recording
-            if (maxVolume < 1.0) {
+            // Append volume warning if no signal was captured (only in recording modes)
+            if ((practiceModeType === 'both' || practiceModeType === 'record') && maxVolume < 1.0) {
                 feedbackHTML += `
                     <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-left text-xs text-yellow-700">
                         <p class="font-bold mb-1"><i class="fas fa-exclamation-triangle mr-1"></i>マイクからの音声入力（音量）が検出されていません</p>
@@ -1041,133 +1099,169 @@
             }
 
             try {
-                // Initialize MediaRecorder (pure local recording with chosen microphone)
-                const select = document.getElementById('mic-select');
-                const selectedDeviceId = select ? select.value : null;
+                const runRecord = (practiceModeType === 'both' || practiceModeType === 'record');
+                const runGrade = (practiceModeType === 'both' || practiceModeType === 'grade');
 
-                try {
-                    const constraints = {
-                        audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true
-                    };
-                    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-                } catch (deviceErr) {
-                    console.warn('Failed to capture audio from selected device, falling back to default:', deviceErr);
-                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                }
+                if (runRecord) {
+                    // Initialize MediaRecorder (pure local recording with chosen microphone)
+                    const select = document.getElementById('mic-select');
+                    const selectedDeviceId = select ? select.value : null;
 
-                // Refresh device labels now that permission has been granted
-                updateMicList();
-
-                mediaRecorder = new MediaRecorder(mediaStream);
-                audioChunks = [];
-
-                // Set up Web Audio API to detect volume levels (macOS diagnostic)
-                try {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    audioCtx = new AudioContextClass();
-                    if (audioCtx.state === 'suspended') {
-                        await audioCtx.resume();
-                    }
-                    const source = audioCtx.createMediaStreamSource(mediaStream);
-                    analyser = audioCtx.createAnalyser();
-                    analyser.fftSize = 256;
-                    source.connect(analyser);
-
-                    const bufferLength = analyser.frequencyBinCount;
-                    const dataArray = new Uint8Array(bufferLength);
-
-                    maxVolume = 0;
-                    volumeCheckInterval = setInterval(() => {
-                        if (analyser) {
-                            analyser.getByteFrequencyData(dataArray);
-                            let sum = 0;
-                            for (let i = 0; i < bufferLength; i++) {
-                                sum += dataArray[i];
+                    try {
+                        const constraints = {
+                            audio: selectedDeviceId ? {
+                                deviceId: { exact: selectedDeviceId },
+                                echoCancellation: false,
+                                noiseSuppression: false,
+                                autoGainControl: false
+                            } : {
+                                echoCancellation: false,
+                                noiseSuppression: false,
+                                autoGainControl: false
                             }
-                            const average = sum / bufferLength;
-                            if (average > maxVolume) {
-                                maxVolume = average;
+                        };
+                        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    } catch (deviceErr) {
+                        console.warn('Failed to capture audio from selected device, falling back to default without DSP:', deviceErr);
+                        mediaStream = await navigator.mediaDevices.getUserMedia({
+                            audio: {
+                                echoCancellation: false,
+                                noiseSuppression: false,
+                                autoGainControl: false
                             }
+                        });
+                    }
+
+                    // Refresh device labels now that permission has been granted
+                    updateMicList();
+
+                    mediaRecorder = new MediaRecorder(mediaStream);
+                    audioChunks = [];
+
+                    // Set up Web Audio API to detect volume levels (macOS diagnostic)
+                    try {
+                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                        audioCtx = new AudioContextClass();
+                        if (audioCtx.state === 'suspended') {
+                            await audioCtx.resume();
                         }
-                    }, 100);
-                } catch (audioErr) {
-                    console.warn('Web Audio API analysis not supported or blocked:', audioErr);
-                    maxVolume = 10; // bypass warning if API fails
-                }
-                
-                mediaRecorder.ondataavailable = ev => {
-                    if (ev.data && ev.data.size > 0) {
-                        audioChunks.push(ev.data);
-                    }
-                };
+                        const source = audioCtx.createMediaStreamSource(mediaStream);
+                        analyser = audioCtx.createAnalyser();
+                        analyser.fftSize = 256;
+                        source.connect(analyser);
 
-                mediaRecorder.onstop = () => {
-                    if (mediaStream) {
-                        mediaStream.getTracks().forEach(t => t.stop());
-                    }
+                        const bufferLength = analyser.frequencyBinCount;
+                        const dataArray = new Uint8Array(bufferLength);
 
-                    if (volumeCheckInterval) {
-                        clearInterval(volumeCheckInterval);
-                        volumeCheckInterval = null;
+                        maxVolume = 0;
+                        volumeCheckInterval = setInterval(() => {
+                            if (analyser) {
+                                analyser.getByteFrequencyData(dataArray);
+                                let sum = 0;
+                                for (let i = 0; i < bufferLength; i++) {
+                                    sum += dataArray[i];
+                                }
+                                const average = sum / bufferLength;
+                                if (average > maxVolume) {
+                                    maxVolume = average;
+                                }
+                            }
+                        }, 100);
+                    } catch (audioErr) {
+                        console.warn('Web Audio API analysis not supported or blocked:', audioErr);
+                        maxVolume = 10; // bypass warning if API fails
                     }
-                    if (audioCtx && audioCtx.state !== 'closed') {
-                        try {
-                            audioCtx.close();
-                        } catch (closeErr) {
-                            console.warn(closeErr);
-                        }
-                    }
-
-                    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-                    recordedAudioURL = URL.createObjectURL(blob);
-                    els.recordingPlayer.src = recordedAudioURL;
-                    els.recordingPlayer.load();
-                    els.recordingPlayer.classList.remove('hidden');
                     
-                    const playRecBtn = document.getElementById('play-recording-btn');
-                    if (playRecBtn) {
-                        playRecBtn.disabled = false;
-                        playRecBtn.classList.remove('btn-disabled');
-                    }
+                    mediaRecorder.ondataavailable = ev => {
+                        if (ev.data && ev.data.size > 0) {
+                            audioChunks.push(ev.data);
+                        }
+                    };
 
-                    displayFinalFeedback();
-                };
+                    mediaRecorder.onstop = () => {
+                        if (mediaStream) {
+                            mediaStream.getTracks().forEach(t => t.stop());
+                        }
+
+                        if (volumeCheckInterval) {
+                            clearInterval(volumeCheckInterval);
+                            volumeCheckInterval = null;
+                        }
+                        if (audioCtx && audioCtx.state !== 'closed') {
+                            try {
+                                audioCtx.close();
+                            } catch (closeErr) {
+                                console.warn(closeErr);
+                            }
+                        }
+
+                        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                        recordedAudioURL = URL.createObjectURL(blob);
+                        els.recordingPlayer.src = recordedAudioURL;
+                        els.recordingPlayer.load();
+                        els.recordingPlayer.classList.remove('hidden');
+                        
+                        const playRecBtn = document.getElementById('play-recording-btn');
+                        if (playRecBtn && practiceModeType !== 'grade') {
+                            playRecBtn.disabled = false;
+                            playRecBtn.classList.remove('btn-disabled');
+                        }
+
+                        displayFinalFeedback();
+                    };
+                }
 
                 // Update UI state to recording
                 isRecording = true;
                 els.micIcon.className = 'fas fa-stop text-2xl';
                 els.micIcon.classList.add('recording');
-                els.pronunciationFeedback.innerHTML = '<span class="text-brand-500 animate-pulse">Listening & Recording...</span>';
+                
+                if (practiceModeType === 'grade') {
+                    els.pronunciationFeedback.innerHTML = '<span class="text-brand-500 animate-pulse">Listening (Pronunciation)...</span>';
+                } else if (practiceModeType === 'record') {
+                    els.pronunciationFeedback.innerHTML = '<span class="text-brand-500 animate-pulse">Recording voice...</span>';
+                } else {
+                    els.pronunciationFeedback.innerHTML = '<span class="text-brand-500 animate-pulse">Listening & Recording...</span>';
+                }
 
                 // Attempt to run SpeechRecognition in parallel for grading
-                if (window.SpeechRecognition || window.webkitSpeechRecognition) {
-                    const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    recognition = new SpeechRecognitionClass();
-                    recognition.lang = 'en-US';
-                    recognition.continuous = false;
-                    recognition.interimResults = false;
-                    
-                    recognitionResultText = null;
-                    recognitionErrorOccurred = false;
-                    recognitionActive = true;
+                if (runGrade) {
+                    if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+                        const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+                        recognition = new SpeechRecognitionClass();
+                        recognition.lang = 'en-US';
+                        recognition.continuous = false;
+                        recognition.interimResults = false;
+                        
+                        recognitionResultText = null;
+                        recognitionErrorOccurred = false;
+                        recognitionActive = true;
 
-                    recognition.onresult = (ev) => {
-                        recognitionResultText = ev.results[0][0].transcript;
-                    };
+                        recognition.onresult = (ev) => {
+                            recognitionResultText = ev.results[0][0].transcript;
+                        };
 
-                    recognition.onerror = (ev) => {
-                        console.error('Speech recognition error', ev.error);
+                        recognition.onerror = (ev) => {
+                            console.error('Speech recognition error', ev.error);
+                            recognitionErrorOccurred = true;
+                        };
+
+                        recognition.onend = () => {
+                            recognitionActive = false;
+                            // If in grade-only mode, stop the recording state when recognition completes naturally
+                            if (practiceModeType === 'grade' && isRecording) {
+                                stopAllRecording();
+                            }
+                        };
+
+                        recognition.start();
+                    } else {
+                        console.warn('SpeechRecognition not supported in this browser');
                         recognitionErrorOccurred = true;
-                    };
-
-                    recognition.onend = () => {
-                        recognitionActive = false;
-                    };
-
-                    recognition.start();
-                } else {
-                    console.warn('SpeechRecognition not supported in this browser');
-                    recognitionErrorOccurred = true;
+                        if (practiceModeType === 'grade' && isRecording) {
+                            stopAllRecording();
+                        }
+                    }
                 }
 
                 // Safety timeout (automatically stops recording after 10 seconds)
@@ -1177,8 +1271,10 @@
                     }
                 }, 10000);
 
-                // Start recording with continuous timeslice for chunk stability
-                mediaRecorder.start(100);
+                if (runRecord && mediaRecorder) {
+                    // Start recording with continuous timeslice for chunk stability
+                    mediaRecorder.start(100);
+                }
 
             } catch (err) {
                 console.error('Failed to access microphone:', err);
