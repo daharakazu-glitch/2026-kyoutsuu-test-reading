@@ -199,6 +199,14 @@
             </div>
 
             <div class="mt-auto">
+                <div class="flex flex-col items-center mb-4">
+                    <div class="flex items-center space-x-2 text-xs text-slate-500">
+                        <i class="fas fa-sliders-h"></i>
+                        <span>マイク入力先:</span>
+                        <select id="mic-select" class="bg-white border border-slate-200 rounded px-2 py-1 max-w-[200px] text-slate-700 focus:outline-none focus:border-brand-500"></select>
+                    </div>
+                </div>
+
                 <div class="flex justify-center items-center space-x-6 mb-8">
                     <button id="speak-btn" class="btn btn-secondary rounded-full w-14 h-14 p-0 flex items-center justify-center shadow-sm" title="音声を聞く">
                         <i class="fas fa-volume-up text-xl"></i>
@@ -573,8 +581,52 @@
         document.addEventListener('DOMContentLoaded', () => {
             renderWordList();
             initSpeech();
+            updateMicList();
+
+            const micSelect = document.getElementById('mic-select');
+            if (micSelect) {
+                micSelect.onchange = () => {
+                    localStorage.setItem('selectedDeviceId', micSelect.value);
+                };
+            }
+
             switchSection('setup');
         });
+
+        async function updateMicList() {
+            const select = document.getElementById('mic-select');
+            if (!select) return;
+
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                    select.innerHTML = '<option value="">デバイス選択非対応</option>';
+                    return;
+                }
+
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(device => device.kind === 'audioinput');
+
+                select.innerHTML = '';
+                audioInputs.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `マイク ${index + 1}`;
+                    select.appendChild(option);
+                });
+
+                if (audioInputs.length === 0) {
+                    select.innerHTML = '<option value="">マイクが見つかりません</option>';
+                } else {
+                    const savedId = localStorage.getItem('selectedDeviceId');
+                    if (savedId && audioInputs.some(d => d.deviceId === savedId)) {
+                        select.value = savedId;
+                    }
+                }
+            } catch (err) {
+                console.error('Error listing microphones:', err);
+                select.innerHTML = '<option value="">マイク取得エラー</option>';
+            }
+        }
 
         // --- FUNCTIONS ---
         function renderWordList() {
@@ -987,8 +1039,23 @@
             }
 
             try {
-                // Initialize MediaRecorder (pure local recording)
-                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Initialize MediaRecorder (pure local recording with chosen microphone)
+                const select = document.getElementById('mic-select');
+                const selectedDeviceId = select ? select.value : null;
+
+                try {
+                    const constraints = {
+                        audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true
+                    };
+                    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (deviceErr) {
+                    console.warn('Failed to capture audio from selected device, falling back to default:', deviceErr);
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                }
+
+                // Refresh device labels now that permission has been granted
+                updateMicList();
+
                 mediaRecorder = new MediaRecorder(mediaStream);
                 audioChunks = [];
 
