@@ -562,6 +562,7 @@
         let recognitionRetryCount = 0;
         let speechRecognitionPending = false;
         let mediaStream = null;
+        let gradingStream = null;
         let recordingTimeout = null;
         let audioCtx = null;
         let analyser = null;
@@ -961,6 +962,11 @@
                 mediaRecorder.stop();
             }
 
+            if (gradingStream) {
+                gradingStream.getTracks().forEach(t => t.stop());
+                gradingStream = null;
+            }
+
             if (recognition && recognitionActive) {
                 try {
                     recognition.stop();
@@ -1073,7 +1079,7 @@
                 `;
             } else {
                 const errLabel = {
-                    'no-speech': '音声認識にマイクの音が届いていません。Chromeの音声認識が別のマイク（BlackHole等の仮想デバイス）を使っている可能性があります。chrome://settings/content/microphone を開き、マイクを「MacBook Proのマイク (Built-in)」に設定してください',
+                    'no-speech': '音声が検出されませんでした。もう一度、録音ボタンを押してすぐにはっきり発音してください（改善しない場合はChromeを一度終了して開き直すと直ることがあります）',
                     'not-allowed': 'マイクの使用が許可されていません（Chromeとサイトのマイク許可を確認してください）',
                     'service-not-allowed': 'ブラウザの音声認識サービスが利用できません',
                     'network': 'ネットワークエラーで音声認識に接続できませんでした',
@@ -1309,6 +1315,23 @@
                         recognitionRetryCount = 0;
                         recognitionActive = true;
                         speechRecognitionPending = true;
+
+                        // 採点のみモードでもマイクの音声パイプラインを起動しておく（Chromeのno-speech対策）。
+                        // 選択中のマイクをgetUserMediaで開き、認識中は開いたままにする。
+                        if (!mediaStream) {
+                            try {
+                                const micSel = document.getElementById('mic-select');
+                                const selId = micSel ? micSel.value : null;
+                                gradingStream = await navigator.mediaDevices.getUserMedia({
+                                    audio: selId ? { deviceId: { exact: selId } } : true
+                                });
+                            } catch (primeErr) {
+                                console.warn('grading mic prime failed:', primeErr);
+                                try {
+                                    gradingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                                } catch (e2) { console.warn('grading mic prime fallback failed:', e2); }
+                            }
+                        }
 
                         startRecognition();
                     } else {
