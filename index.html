@@ -558,6 +558,7 @@
         let recognitionActive = false;
         let recognitionResultText = null;
         let recognitionErrorOccurred = false;
+        let speechRecognitionPending = false;
         let mediaStream = null;
         let recordingTimeout = null;
         let audioCtx = null;
@@ -740,15 +741,10 @@
 
             if (mode === 'sentence' && word.sentence) {
                 els.illustrationArea.classList.remove('hidden');
-                // Highlight target word logic
-                // Simple approach: split sentence by word, find fuzzy match, or just display raw
-                // Let's try to highlight the word in the sentence
                 const escapedWord = word.english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').split(' ')[0]; 
                 const regex = new RegExp(`(${escapedWord}\\w*)`, 'gi');
                 
-                // Fallback if regex fails to match simply (e.g. phrases)
                 let htmlSentence = word.sentence.replace(regex, '<span class="text-brand-600 border-b-2 border-brand-200">$1</span>');
-                // If the phrase is multi-word, try to match the whole phrase
                 if (word.english.includes(' ')) {
                      const escapedPhrase = word.english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                      const phraseRegex = new RegExp(`(${escapedPhrase})`, 'gi');
@@ -841,7 +837,6 @@
         // --- AUDIO ---
         function initSpeech() {
             if ('speechSynthesis' in window) {
-                // 初回の読み込み
                 voices = window.speechSynthesis.getVoices();
                 window.speechSynthesis.onvoiceschanged = () => {
                     voices = window.speechSynthesis.getVoices();
@@ -855,25 +850,19 @@
         }
 
         function speakText(text) {
-            // iOS等でスリープした音声エンジンを起こし、スタックしたキューをクリアするために必須（これがないと無音になります）
             window.speechSynthesis.cancel();
-
-            // Remove HTML tags for speaking
             const cleanText = text.replace(/<[^>]*>/g, '');
             const u = new SpeechSynthesisUtterance(cleanText);
             u.lang = 'en-US';
             u.rate = 0.9;
             
             let currentVoices = voices;
-            // 音声リストが空の場合は再取得
             if (!currentVoices || currentVoices.length === 0) {
                 currentVoices = window.speechSynthesis.getVoices();
             }
             
-            // Google音声か標準の英語音声を優先
             let v = null;
             if (currentVoices && currentVoices.length > 0) {
-                // Arrayでない環境（古いSafariなど）に備えてArray.fromを使用
                 const voiceArray = Array.from(currentVoices);
                 v = voiceArray.find(x => x.name.includes('Google US English')) || voiceArray.find(x => x.lang === 'en-US');
                 if (!v) {
@@ -884,8 +873,6 @@
             if (v) {
                 u.voice = v;
             }
-            
-            // 必ず同期的に実行する
             window.speechSynthesis.speak(u);
         }
 
@@ -967,11 +954,17 @@
             els.micIcon.classList.remove('recording');
             els.micIcon.className = 'fas fa-microphone text-2xl';
 
-            // In grade-only mode, we call displayFinalFeedback directly since MediaRecorder onstop won't trigger
-            if (practiceModeType === 'grade') {
+            // Safety fallback: if speech recognition doesn't return within 2 seconds of stopping, show whatever feedback we have
+            if (speechRecognitionPending) {
                 setTimeout(() => {
-                    displayFinalFeedback();
-                }, 100);
+                    if (speechRecognitionPending) {
+                        speechRecognitionPending = false;
+                        displayFinalFeedback();
+                    }
+                }, 2000);
+            } else {
+                // If no speech recognition was running or it finished already, display feedback immediately
+                displayFinalFeedback();
             }
         }
 
@@ -990,7 +983,6 @@
                 const transcript = recognitionResultText;
                 const target = els.englishText.textContent.replace(/<[^>]*>/g, '');
 
-                // Hybrid Word-Character Levenshtein Distance for lenient pronunciation scoring
                 const charDist = (s, t) => {
                     const n = s.length;
                     const m = t.length;
@@ -1020,7 +1012,6 @@
                     return maxLen === 0 ? 0 : 1 - d / maxLen;
                 };
 
-                // Clean strings for comparison (remove punctuation, lower case)
                 const cleanT = transcript.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g,"").trim();
                 const cleanTarget = target.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g,"").trim();
 
@@ -1041,9 +1032,9 @@
                         for (let j = 1; j <= m; j++) {
                             const subCost = 1 - wordSimilarity(targetWords[i - 1], userWords[j - 1]);
                             dp[i][j] = Math.min(
-                                dp[i - 1][j] + 1,       // deletion
-                                dp[i][j - 1] + 1,       // insertion
-                                dp[i - 1][j - 1] + subCost // substitution
+                                dp[i - 1][j] + 1,
+                                dp[i][j - 1] + 1,
+                                dp[i - 1][j - 1] + subCost
                             );
                         }
                     }
@@ -1071,7 +1062,6 @@
                 `;
             }
 
-            // Append volume warning if no signal was captured (only in recording modes)
             if ((practiceModeType === 'both' || practiceModeType === 'record') && maxVolume < 1.0) {
                 feedbackHTML += `
                     <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-left text-xs text-yellow-700">
@@ -1103,7 +1093,6 @@
                 const runGrade = (practiceModeType === 'both' || practiceModeType === 'grade');
 
                 if (runRecord) {
-                    // Initialize MediaRecorder (pure local recording with chosen microphone)
                     const select = document.getElementById('mic-select');
                     const selectedDeviceId = select ? select.value : null;
 
@@ -1132,13 +1121,11 @@
                         });
                     }
 
-                    // Refresh device labels now that permission has been granted
                     updateMicList();
 
                     mediaRecorder = new MediaRecorder(mediaStream);
                     audioChunks = [];
 
-                    // Set up Web Audio API to detect volume levels (macOS diagnostic)
                     try {
                         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
                         audioCtx = new AudioContextClass();
@@ -1169,7 +1156,7 @@
                         }, 100);
                     } catch (audioErr) {
                         console.warn('Web Audio API analysis not supported or blocked:', audioErr);
-                        maxVolume = 10; // bypass warning if API fails
+                        maxVolume = 10;
                     }
                     
                     mediaRecorder.ondataavailable = ev => {
@@ -1207,11 +1194,12 @@
                             playRecBtn.classList.remove('btn-disabled');
                         }
 
-                        displayFinalFeedback();
+                        if (!speechRecognitionPending) {
+                            displayFinalFeedback();
+                        }
                     };
                 }
 
-                // Update UI state to recording
                 isRecording = true;
                 els.micIcon.className = 'fas fa-stop text-2xl';
                 els.micIcon.classList.add('recording');
@@ -1236,14 +1224,19 @@
                         recognitionResultText = null;
                         recognitionErrorOccurred = false;
                         recognitionActive = true;
+                        speechRecognitionPending = true;
 
                         recognition.onresult = (ev) => {
                             recognitionResultText = ev.results[0][0].transcript;
+                            speechRecognitionPending = false;
+                            displayFinalFeedback();
                         };
 
                         recognition.onerror = (ev) => {
                             console.error('Speech recognition error', ev.error);
                             recognitionErrorOccurred = true;
+                            speechRecognitionPending = false;
+                            displayFinalFeedback();
                         };
 
                         recognition.onend = () => {
@@ -1251,6 +1244,9 @@
                             // If in grade-only mode, stop the recording state when recognition completes naturally
                             if (practiceModeType === 'grade' && isRecording) {
                                 stopAllRecording();
+                            } else if (speechRecognitionPending) {
+                                speechRecognitionPending = false;
+                                displayFinalFeedback();
                             }
                         };
 
