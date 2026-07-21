@@ -558,6 +558,8 @@
         let recognitionActive = false;
         let recognitionResultText = null;
         let recognitionErrorOccurred = false;
+        let recognitionErrorCode = null;
+        let recognitionRetryCount = 0;
         let speechRecognitionPending = false;
         let mediaStream = null;
         let recordingTimeout = null;
@@ -1070,10 +1072,22 @@
                     </div>
                 `;
             } else {
+                const errLabel = {
+                    'no-speech': '音声が検出されませんでした（もう少し大きな声で、はっきり話してください）',
+                    'not-allowed': 'マイクの使用が許可されていません（Chromeとサイトのマイク許可を確認してください）',
+                    'service-not-allowed': 'ブラウザの音声認識サービスが利用できません',
+                    'network': 'ネットワークエラーで音声認識に接続できませんでした',
+                    'audio-capture': 'マイクから音声を取得できませんでした',
+                    'aborted': '音声認識が中断されました',
+                    'not-supported': 'このブラウザは音声認識に対応していません',
+                    'start-failed': '音声認識を開始できませんでした'
+                };
+                const codeMsg = recognitionErrorCode ? (errLabel[recognitionErrorCode] || `音声認識エラー (${recognitionErrorCode})`) : '音声認識が行えませんでした';
                 feedbackHTML = `
                     <div class="flex flex-col items-center">
                         <span class="text-red-500 font-medium">発音採点が利用できませんでした。</span>
-                        <span class="text-xs text-slate-400 text-center">ネットワーク制限等により音声認識が行えなかった可能性があります。<br>録音は保存されましたので、右のボタンから自分の声を確認できます。</span>
+                        <span class="text-xs text-slate-400 text-center">${codeMsg}<br>録音は保存されましたので、右のボタンから自分の声を確認できます。</span>
+                        <span class="text-[10px] text-slate-300 mt-1">診断コード: ${recognitionErrorCode || 'none'}</span>
                     </div>
                 `;
             }
@@ -1093,6 +1107,64 @@
             }
 
             els.pronunciationFeedback.innerHTML = feedbackHTML;
+        }
+
+        // Create and start a fresh SpeechRecognition instance (with auto-retry on transient errors)
+        function startRecognition() {
+            const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognitionClass();
+            recognition.lang = 'en-US';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            let retrying = false;
+
+            recognition.onresult = (ev) => {
+                recognitionResultText = ev.results[0][0].transcript;
+                speechRecognitionPending = false;
+                displayFinalFeedback();
+            };
+
+            recognition.onerror = (ev) => {
+                console.error('Speech recognition error:', ev.error);
+                recognitionErrorCode = ev.error;
+                // 'network'/'aborted' はChromeの音声認識でよく起きる一時的エラー。数回だけ自動リトライする
+                if ((ev.error === 'network' || ev.error === 'aborted') && recognitionRetryCount < 2 && isRecording) {
+                    recognitionRetryCount++;
+                    retrying = true;
+                    setTimeout(() => {
+                        if (isRecording) {
+                            try { startRecognition(); } catch (e) { console.warn(e); }
+                        }
+                    }, 350);
+                    return;
+                }
+                recognitionErrorOccurred = true;
+                speechRecognitionPending = false;
+                displayFinalFeedback();
+            };
+
+            recognition.onend = () => {
+                recognitionActive = false;
+                if (retrying) return; // リトライ中は次のインスタンスに処理を任せる
+                if (practiceModeType === 'grade' && isRecording) {
+                    stopAllRecording();
+                } else if (speechRecognitionPending) {
+                    speechRecognitionPending = false;
+                    displayFinalFeedback();
+                }
+            };
+
+            recognitionActive = true;
+            try {
+                recognition.start();
+            } catch (e) {
+                console.warn('recognition.start failed:', e);
+                recognitionErrorCode = 'start-failed';
+                recognitionErrorOccurred = true;
+                speechRecognitionPending = false;
+                displayFinalFeedback();
+            }
         }
 
         // Recording & Grading with Decoupled Fallback
@@ -1231,45 +1303,18 @@
                 // Attempt to run SpeechRecognition in parallel for grading
                 if (runGrade) {
                     if (window.SpeechRecognition || window.webkitSpeechRecognition) {
-                        const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-                        recognition = new SpeechRecognitionClass();
-                        recognition.lang = 'en-US';
-                        recognition.continuous = false;
-                        recognition.interimResults = false;
-                        
                         recognitionResultText = null;
                         recognitionErrorOccurred = false;
+                        recognitionErrorCode = null;
+                        recognitionRetryCount = 0;
                         recognitionActive = true;
                         speechRecognitionPending = true;
 
-                        recognition.onresult = (ev) => {
-                            recognitionResultText = ev.results[0][0].transcript;
-                            speechRecognitionPending = false;
-                            displayFinalFeedback();
-                        };
-
-                        recognition.onerror = (ev) => {
-                            console.error('Speech recognition error', ev.error);
-                            recognitionErrorOccurred = true;
-                            speechRecognitionPending = false;
-                            displayFinalFeedback();
-                        };
-
-                        recognition.onend = () => {
-                            recognitionActive = false;
-                            // If in grade-only mode, stop the recording state when recognition completes naturally
-                            if (practiceModeType === 'grade' && isRecording) {
-                                stopAllRecording();
-                            } else if (speechRecognitionPending) {
-                                speechRecognitionPending = false;
-                                displayFinalFeedback();
-                            }
-                        };
-
-                        recognition.start();
+                        startRecognition();
                     } else {
                         console.warn('SpeechRecognition not supported in this browser');
                         recognitionErrorOccurred = true;
+                        recognitionErrorCode = 'not-supported';
                         if (practiceModeType === 'grade' && isRecording) {
                             stopAllRecording();
                         }
