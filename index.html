@@ -1073,7 +1073,7 @@
                 `;
             } else {
                 const errLabel = {
-                    'no-speech': '音声が検出されませんでした（もう少し大きな声で、はっきり話してください）',
+                    'no-speech': '音声認識にマイクの音が届いていません。Chromeの音声認識が別のマイク（BlackHole等の仮想デバイス）を使っている可能性があります。chrome://settings/content/microphone を開き、マイクを「MacBook Proのマイク (Built-in)」に設定してください',
                     'not-allowed': 'マイクの使用が許可されていません（Chromeとサイトのマイク許可を確認してください）',
                     'service-not-allowed': 'ブラウザの音声認識サービスが利用できません',
                     'network': 'ネットワークエラーで音声認識に接続できませんでした',
