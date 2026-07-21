@@ -651,11 +651,18 @@
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const audioInputs = devices.filter(device => device.kind === 'audioinput');
 
+                // 仮想オーディオデバイス（無音になりやすい）を判定する
+                const isVirtualDevice = (label) => {
+                    const l = (label || '').toLowerCase();
+                    return /blackhole|parrot|soundflower|loopback|aggregate|multi-output|virtual|krisp|voicemeeter| zoomaudiodevice|obs|vb-audio|集約|仮想/.test(l);
+                };
+
                 select.innerHTML = '';
                 audioInputs.forEach((device, index) => {
                     const option = document.createElement('option');
                     option.value = device.deviceId;
-                    option.textContent = device.label || `マイク ${index + 1}`;
+                    const baseLabel = device.label || `マイク ${index + 1}`;
+                    option.textContent = isVirtualDevice(baseLabel) ? `${baseLabel}（仮想・録音非推奨）` : baseLabel;
                     select.appendChild(option);
                 });
 
@@ -663,8 +670,17 @@
                     select.innerHTML = '<option value="">マイクが見つかりません</option>';
                 } else {
                     const savedId = localStorage.getItem('selectedDeviceId');
-                    if (savedId && audioInputs.some(d => d.deviceId === savedId)) {
+                    const savedValid = savedId && audioInputs.some(d => d.deviceId === savedId && !isVirtualDevice(d.label));
+                    if (savedValid) {
                         select.value = savedId;
+                    } else {
+                        // 実在するマイク（内蔵/USB等）を優先して自動選択し、無音の仮想デバイスを避ける
+                        const realMic = audioInputs.find(d => (d.deviceId === 'default' || d.deviceId === 'communications') && !isVirtualDevice(d.label))
+                            || audioInputs.find(d => !isVirtualDevice(d.label));
+                        if (realMic) {
+                            select.value = realMic.deviceId;
+                            localStorage.setItem('selectedDeviceId', realMic.deviceId);
+                        }
                     }
                 }
             } catch (err) {
