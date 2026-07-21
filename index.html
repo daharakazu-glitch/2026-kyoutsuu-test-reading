@@ -218,7 +218,7 @@
                         <i class="fas fa-play text-xl"></i>
                     </button>
                 </div>
-                <audio id="recording-player" class="hidden"></audio>
+                <audio id="recording-player" controls class="hidden w-full max-w-xs mx-auto mt-2 mb-6"></audio>
 
                 <div class="flex justify-between items-center gap-2">
                     <button id="prev-btn" class="btn btn-secondary px-4 sm:px-6"><i class="fas fa-chevron-left mr-2"></i> <span class="hidden sm:inline">前へ</span></button>
@@ -681,6 +681,7 @@
                 recordedAudioURL = null;
             }
             els.recordingPlayer.src = '';
+            els.recordingPlayer.classList.add('hidden');
             const playRecBtn = document.getElementById('play-recording-btn');
             if (playRecBtn) {
                 playRecBtn.disabled = true;
@@ -1019,6 +1020,7 @@
                         <p class="font-bold mb-1"><i class="fas fa-exclamation-triangle mr-1"></i>マイクからの音声入力（音量）が検出されていません</p>
                         <ul class="list-disc pl-4 space-y-1">
                             <li>マイクが物理的にミュートされていないか確認してください。</li>
+                            <li><b>【Macの重要なご注意】</b>MacBookの画面（蓋）を閉じた状態で外部モニターを使用していませんか？ 画面が閉じていると防犯機能により<b>内蔵マイクが物理的に切断され無音になります</b>。MacBookの蓋を開くか、別の有効なマイク（ヘッドセット、USBマイク等）を「マイク入力先」リストから選択してください。</li>
                             <li>Macの<b>「システム設定 ＞ プライバシーとセキュリティ ＞ マイク」</b>でGoogle Chromeへのアクセスが許可されているか確認してください（許可されている場合でも、一度オフにしてから再度オンにすると改善される場合があります）。</li>
                             <li>ブラウザのアドレスバー左側の設定アイコンをクリックし、このサイトに対するマイクの使用許可がONになっているか確認してください。</li>
                         </ul>
@@ -1120,6 +1122,7 @@
                     recordedAudioURL = URL.createObjectURL(blob);
                     els.recordingPlayer.src = recordedAudioURL;
                     els.recordingPlayer.load();
+                    els.recordingPlayer.classList.remove('hidden');
                     
                     const playRecBtn = document.getElementById('play-recording-btn');
                     if (playRecBtn) {
