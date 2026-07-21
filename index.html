@@ -545,6 +545,10 @@
         let recognitionErrorOccurred = false;
         let mediaStream = null;
         let recordingTimeout = null;
+        let audioCtx = null;
+        let analyser = null;
+        let maxVolume = 0;
+        let volumeCheckInterval = null;
 
         // --- DOM Elements ---
         const els = {
@@ -846,6 +850,11 @@
                 recordingTimeout = null;
             }
 
+            if (volumeCheckInterval) {
+                clearInterval(volumeCheckInterval);
+                volumeCheckInterval = null;
+            }
+
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
             }
@@ -864,6 +873,8 @@
 
         // Helper to evaluate and display final feedback
         function displayFinalFeedback() {
+            let feedbackHTML = '';
+
             if (recognitionResultText) {
                 const transcript = recognitionResultText;
                 const target = els.englishText.textContent.replace(/<[^>]*>/g, '');
@@ -934,20 +945,36 @@
                 else if (scoreVal > 50) { msg = 'Good job!'; color = 'text-blue-500'; }
                 else { msg = 'Try again'; color = 'text-red-500'; }
                 
-                els.pronunciationFeedback.innerHTML = `
+                feedbackHTML = `
                     <div class="flex flex-col items-center">
                         <span class="text-xs text-slate-400">You said: "${transcript}"</span>
                         <span class="text-xl font-bold ${color}">${msg} (${scoreVal}%)</span>
                     </div>
                 `;
             } else {
-                els.pronunciationFeedback.innerHTML = `
+                feedbackHTML = `
                     <div class="flex flex-col items-center">
                         <span class="text-red-500 font-medium">発音採点が利用できませんでした。</span>
                         <span class="text-xs text-slate-400 text-center">ネットワーク制限等により音声認識が行えなかった可能性があります。<br>録音は保存されましたので、右のボタンから自分の声を確認できます。</span>
                     </div>
                 `;
             }
+
+            // Append volume warning if no signal was captured during recording
+            if (maxVolume < 1.0) {
+                feedbackHTML += `
+                    <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-left text-xs text-yellow-700">
+                        <p class="font-bold mb-1"><i class="fas fa-exclamation-triangle mr-1"></i>マイクからの音声入力（音量）が検出されていません</p>
+                        <ul class="list-disc pl-4 space-y-1">
+                            <li>マイクが物理的にミュートされていないか確認してください。</li>
+                            <li>Macの<b>「システム設定 ＞ プライバシーとセキュリティ ＞ マイク」</b>でGoogle Chromeへのアクセスが許可されているか確認してください（許可されている場合でも、一度オフにしてから再度オンにすると改善される場合があります）。</li>
+                            <li>ブラウザのアドレスバー左側の設定アイコンをクリックし、このサイトに対するマイクの使用許可がONになっているか確認してください。</li>
+                        </ul>
+                    </div>
+                `;
+            }
+
+            els.pronunciationFeedback.innerHTML = feedbackHTML;
         }
 
         // Recording & Grading with Decoupled Fallback
@@ -964,11 +991,62 @@
                 mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(mediaStream);
                 audioChunks = [];
+
+                // Set up Web Audio API to detect volume levels (macOS diagnostic)
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    audioCtx = new AudioContextClass();
+                    if (audioCtx.state === 'suspended') {
+                        await audioCtx.resume();
+                    }
+                    const source = audioCtx.createMediaStreamSource(mediaStream);
+                    analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 256;
+                    source.connect(analyser);
+
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+
+                    maxVolume = 0;
+                    volumeCheckInterval = setInterval(() => {
+                        if (analyser) {
+                            analyser.getByteFrequencyData(dataArray);
+                            let sum = 0;
+                            for (let i = 0; i < bufferLength; i++) {
+                                sum += dataArray[i];
+                            }
+                            const average = sum / bufferLength;
+                            if (average > maxVolume) {
+                                maxVolume = average;
+                            }
+                        }
+                    }, 100);
+                } catch (audioErr) {
+                    console.warn('Web Audio API analysis not supported or blocked:', audioErr);
+                    maxVolume = 10; // bypass warning if API fails
+                }
                 
-                mediaRecorder.ondataavailable = ev => audioChunks.push(ev.data);
+                mediaRecorder.ondataavailable = ev => {
+                    if (ev.data && ev.data.size > 0) {
+                        audioChunks.push(ev.data);
+                    }
+                };
+
                 mediaRecorder.onstop = () => {
                     if (mediaStream) {
                         mediaStream.getTracks().forEach(t => t.stop());
+                    }
+
+                    if (volumeCheckInterval) {
+                        clearInterval(volumeCheckInterval);
+                        volumeCheckInterval = null;
+                    }
+                    if (audioCtx && audioCtx.state !== 'closed') {
+                        try {
+                            audioCtx.close();
+                        } catch (closeErr) {
+                            console.warn(closeErr);
+                        }
                     }
 
                     const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
@@ -1029,7 +1107,8 @@
                     }
                 }, 10000);
 
-                mediaRecorder.start();
+                // Start recording with continuous timeslice for chunk stability
+                mediaRecorder.start(100);
 
             } catch (err) {
                 console.error('Failed to access microphone:', err);
