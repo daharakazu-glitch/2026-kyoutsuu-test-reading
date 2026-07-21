@@ -842,6 +842,18 @@
             speakText(els.englishText.textContent);
         };
 
+        // Check for iOS / Safari to handle browser-specific audio constraints
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const supportsConcurrentRecording = !(isIOS || isSafari);
+
+        if (!supportsConcurrentRecording) {
+            const playRecBtn = document.getElementById('play-recording-btn');
+            if (playRecBtn) {
+                playRecBtn.title = 'iOS/Safariでは自分の声の録音再生はサポートされていません';
+            }
+        }
+
         // Recording with Lenient Scoring
         document.getElementById('record-btn').onclick = async (e) => {
             e.stopPropagation();
@@ -853,40 +865,56 @@
                 return;
             }
 
+            let stream = null;
+            let recognitionReceivedResult = false;
+            let recognitionError = null;
+
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-                recordingDiscarded = false;
-                
-                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                mediaRecorder.onstop = () => {
-                    stream.getTracks().forEach(t => t.stop());
-                    els.micIcon.classList.remove('recording');
-                    els.micIcon.className = 'fas fa-microphone text-2xl';
-
-                    if (recordingDiscarded) {
+                if (supportsConcurrentRecording) {
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        mediaRecorder = new MediaRecorder(stream);
                         audioChunks = [];
-                        return;
-                    }
+                        recordingDiscarded = false;
+                        
+                        mediaRecorder.ondataavailable = ev => audioChunks.push(ev.data);
+                        mediaRecorder.onstop = () => {
+                            if (stream) stream.getTracks().forEach(t => t.stop());
+                            
+                            // Reset recording state
+                            els.micIcon.classList.remove('recording');
+                            els.micIcon.className = 'fas fa-microphone text-2xl';
 
-                    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-                    recordedAudioURL = URL.createObjectURL(blob);
-                    els.recordingPlayer.src = recordedAudioURL;
-                    els.recordingPlayer.load();
-                    document.getElementById('play-recording-btn').disabled = false;
-                    document.getElementById('play-recording-btn').classList.remove('btn-disabled');
-                };
-                mediaRecorder.start();
+                            if (recordingDiscarded) {
+                                audioChunks = [];
+                                return;
+                            }
+
+                            const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                            recordedAudioURL = URL.createObjectURL(blob);
+                            els.recordingPlayer.src = recordedAudioURL;
+                            els.recordingPlayer.load();
+                            document.getElementById('play-recording-btn').disabled = false;
+                            document.getElementById('play-recording-btn').classList.remove('btn-disabled');
+                        };
+                        mediaRecorder.start();
+                    } catch (mediaErr) {
+                        console.warn('Failed to start MediaRecorder, falling back to speech recognition only:', mediaErr);
+                        stream = null;
+                        mediaRecorder = null;
+                    }
+                }
 
                 recognition = new SpeechRecognition();
                 recognition.lang = 'en-US';
                 recognition.started = true;
+                
                 els.micIcon.className = 'fas fa-stop text-2xl';
                 els.micIcon.classList.add('recording');
                 els.pronunciationFeedback.innerHTML = '<span class="text-brand-500 animate-pulse">Listening...</span>';
 
                 recognition.onresult = (ev) => {
+                    recognitionReceivedResult = true;
                     const transcript = ev.results[0][0].transcript;
                     const target = els.englishText.textContent.replace(/<[^>]*>/g, '');
                     
@@ -935,15 +963,47 @@
                         </div>
                     `;
                 };
+
+                recognition.onerror = (ev) => {
+                    console.error('Speech recognition error', ev.error);
+                    recognitionError = ev.error;
+                    let errorMsg = '音声認識エラーが発生しました';
+                    if (ev.error === 'no-speech') {
+                        errorMsg = '発音が検出されませんでした。もう一度お試しください。';
+                    } else if (ev.error === 'audio-capture') {
+                        errorMsg = 'マイクの接続に失敗しました。';
+                    } else if (ev.error === 'not-allowed') {
+                        errorMsg = 'マイクの使用が許可されていません。ブラウザの設定でマイクを許可してください。';
+                    } else if (ev.error === 'network') {
+                        errorMsg = 'ネットワークエラーが発生しました。ネット接続を確認してください。';
+                    }
+                    els.pronunciationFeedback.innerHTML = `<span class="text-red-500 font-medium">${errorMsg}</span>`;
+                };
+
                 recognition.onend = () => {
                     recognition.started = false;
-                    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+                    
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                    } else {
+                        // If no mediaRecorder was used, we must reset the mic button UI here
+                        els.micIcon.classList.remove('recording');
+                        els.micIcon.className = 'fas fa-microphone text-2xl';
+                    }
+
+                    if (!recognitionReceivedResult && !recognitionError) {
+                        els.pronunciationFeedback.innerHTML = '<span class="text-slate-500 font-medium">発音が認識されませんでした。もう一度お試しください。</span>';
+                    }
                 };
+
                 recognition.start();
 
             } catch (err) {
                 console.error(err);
                 alert('マイクへのアクセスを許可してください');
+                els.micIcon.classList.remove('recording');
+                els.micIcon.className = 'fas fa-microphone text-2xl';
+                els.pronunciationFeedback.innerHTML = '<span class="text-red-500 font-medium">マイクの起動に失敗しました。</span>';
             }
         };
 
