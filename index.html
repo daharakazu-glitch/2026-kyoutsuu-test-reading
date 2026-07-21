@@ -206,7 +206,11 @@
                     <button id="record-btn" class="btn btn-red rounded-full w-16 h-16 p-0 flex items-center justify-center shadow-lg" title="発音練習">
                         <i id="mic-icon" class="fas fa-microphone text-2xl"></i>
                     </button>
+                    <button id="play-recording-btn" class="btn btn-green btn-disabled rounded-full w-14 h-14 p-0 flex items-center justify-center shadow-sm" disabled title="自分の声を聞く">
+                        <i class="fas fa-play text-xl"></i>
+                    </button>
                 </div>
+                <audio id="recording-player" class="hidden"></audio>
 
                 <div class="flex justify-between items-center gap-2">
                     <button id="prev-btn" class="btn btn-secondary px-4 sm:px-6"><i class="fas fa-chevron-left mr-2"></i> <span class="hidden sm:inline">前へ</span></button>
@@ -532,6 +536,15 @@
         let incorrectAnswers = [];
         let voices = [];
         let recognition;
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordedAudioURL = null;
+        let isRecording = false;
+        let recognitionActive = false;
+        let recognitionResultText = null;
+        let recognitionErrorOccurred = false;
+        let mediaStream = null;
+        let recordingTimeout = null;
 
         // --- DOM Elements ---
         const els = {
@@ -548,7 +561,8 @@
             progressIndicator: document.getElementById('progress-indicator'),
             illustrationArea: document.getElementById('illustration-area'),
             pronunciationFeedback: document.getElementById('pronunciation-feedback-container'),
-            micIcon: document.getElementById('mic-icon')
+            micIcon: document.getElementById('mic-icon'),
+            recordingPlayer: document.getElementById('recording-player')
         };
 
         // --- INIT ---
@@ -584,11 +598,9 @@
         }
 
         function switchSection(name) {
-            // Stop recognition if leaving learning section
+            // Stop recording/recognition if leaving learning section
             if (name !== 'learning') {
-                if (recognition && recognition.started) {
-                    recognition.stop();
-                }
+                if (typeof stopAllRecording === 'function') stopAllRecording();
             }
 
             ['setupSection', 'learningSection', 'testOptionsSection', 'quizSection', 'resultsSection'].forEach(k => {
@@ -605,12 +617,19 @@
             const word = selectedWords[currentWordIndex];
             const mode = document.querySelector('input[name="mode"]:checked').value;
             
-            // Stop active recognition
-            if (recognition && recognition.started) {
-                recognition.stop();
+            // Stop active recording/recognition
+            if (typeof stopAllRecording === 'function') stopAllRecording();
+
+            if (recordedAudioURL) {
+                URL.revokeObjectURL(recordedAudioURL);
+                recordedAudioURL = null;
             }
-            els.micIcon.classList.remove('recording');
-            els.micIcon.className = 'fas fa-microphone text-2xl';
+            els.recordingPlayer.src = '';
+            const playRecBtn = document.getElementById('play-recording-btn');
+            if (playRecBtn) {
+                playRecBtn.disabled = true;
+                playRecBtn.classList.add('btn-disabled');
+            }
 
             // Reset View
             els.japaneseWrapper.classList.remove('opacity-100', 'translate-y-0');
@@ -817,143 +836,219 @@
             speakText(els.englishText.textContent);
         };
 
-        // Recording with Lenient Scoring
+        // Helper to stop all recording activities
+        function stopAllRecording() {
+            if (!isRecording) return;
+            isRecording = false;
+
+            if (recordingTimeout) {
+                clearTimeout(recordingTimeout);
+                recordingTimeout = null;
+            }
+
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+
+            if (recognition && recognitionActive) {
+                try {
+                    recognition.stop();
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
+
+            els.micIcon.classList.remove('recording');
+            els.micIcon.className = 'fas fa-microphone text-2xl';
+        }
+
+        // Helper to evaluate and display final feedback
+        function displayFinalFeedback() {
+            if (recognitionResultText) {
+                const transcript = recognitionResultText;
+                const target = els.englishText.textContent.replace(/<[^>]*>/g, '');
+
+                // Hybrid Word-Character Levenshtein Distance for lenient pronunciation scoring
+                const charDist = (s, t) => {
+                    const n = s.length;
+                    const m = t.length;
+                    if (n === 0) return m;
+                    if (m === 0) return n;
+                    
+                    const dp = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
+                    for (let i = 0; i <= n; i++) dp[i][0] = i;
+                    for (let j = 0; j <= m; j++) dp[0][j] = j;
+                    
+                    for (let i = 1; i <= n; i++) {
+                        for (let j = 1; j <= m; j++) {
+                            const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+                            dp[i][j] = Math.min(
+                                dp[i - 1][j] + 1,
+                                dp[i][j - 1] + 1,
+                                dp[i - 1][j - 1] + cost
+                            );
+                        }
+                    }
+                    return dp[n][m];
+                };
+
+                const wordSimilarity = (w1, w2) => {
+                    const d = charDist(w1, w2);
+                    const maxLen = Math.max(w1.length, w2.length);
+                    return maxLen === 0 ? 0 : 1 - d / maxLen;
+                };
+
+                // Clean strings for comparison (remove punctuation, lower case)
+                const cleanT = transcript.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g,"").trim();
+                const cleanTarget = target.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g,"").trim();
+
+                const targetWords = cleanTarget.split(/\s+/).filter(Boolean);
+                const userWords = cleanT.split(/\s+/).filter(Boolean);
+
+                let scoreVal = 0;
+
+                if (targetWords.length > 0 && userWords.length > 0) {
+                    const n = targetWords.length;
+                    const m = userWords.length;
+                    const dp = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
+
+                    for (let i = 0; i <= n; i++) dp[i][0] = i;
+                    for (let j = 0; j <= m; j++) dp[0][j] = j;
+
+                    for (let i = 1; i <= n; i++) {
+                        for (let j = 1; j <= m; j++) {
+                            const subCost = 1 - wordSimilarity(targetWords[i - 1], userWords[j - 1]);
+                            dp[i][j] = Math.min(
+                                dp[i - 1][j] + 1,       // deletion
+                                dp[i][j - 1] + 1,       // insertion
+                                dp[i - 1][j - 1] + subCost // substitution
+                            );
+                        }
+                    }
+                    const totalCost = dp[n][m];
+                    scoreVal = Math.round(Math.max(0, (1 - totalCost / Math.max(n, m)) * 100));
+                }
+                
+                let msg = '', color = '';
+                if (scoreVal > 80) { msg = 'Excellent!'; color = 'text-green-600'; }
+                else if (scoreVal > 50) { msg = 'Good job!'; color = 'text-blue-500'; }
+                else { msg = 'Try again'; color = 'text-red-500'; }
+                
+                els.pronunciationFeedback.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <span class="text-xs text-slate-400">You said: "${transcript}"</span>
+                        <span class="text-xl font-bold ${color}">${msg} (${scoreVal}%)</span>
+                    </div>
+                `;
+            } else {
+                els.pronunciationFeedback.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <span class="text-red-500 font-medium">発音採点が利用できませんでした。</span>
+                        <span class="text-xs text-slate-400 text-center">ネットワーク制限等により音声認識が行えなかった可能性があります。<br>録音は保存されましたので、右のボタンから自分の声を確認できます。</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Recording & Grading with Decoupled Fallback
         document.getElementById('record-btn').onclick = async (e) => {
             e.stopPropagation();
-            if (!window.SpeechRecognition) return alert('このブラウザは音声認識をサポートしていません');
             
-            if (recognition && recognition.started) {
-                recognition.stop();
+            if (isRecording) {
+                stopAllRecording();
                 return;
             }
 
-            let recognitionReceivedResult = false;
-            let recognitionError = null;
-
             try {
-                recognition = new SpeechRecognition();
-                recognition.lang = 'en-US';
-                recognition.started = true;
+                // Initialize MediaRecorder (pure local recording)
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(mediaStream);
+                audioChunks = [];
                 
+                mediaRecorder.ondataavailable = ev => audioChunks.push(ev.data);
+                mediaRecorder.onstop = () => {
+                    if (mediaStream) {
+                        mediaStream.getTracks().forEach(t => t.stop());
+                    }
+
+                    const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                    recordedAudioURL = URL.createObjectURL(blob);
+                    els.recordingPlayer.src = recordedAudioURL;
+                    els.recordingPlayer.load();
+                    
+                    const playRecBtn = document.getElementById('play-recording-btn');
+                    if (playRecBtn) {
+                        playRecBtn.disabled = false;
+                        playRecBtn.classList.remove('btn-disabled');
+                    }
+
+                    displayFinalFeedback();
+                };
+
+                // Update UI state to recording
+                isRecording = true;
                 els.micIcon.className = 'fas fa-stop text-2xl';
                 els.micIcon.classList.add('recording');
-                els.pronunciationFeedback.innerHTML = '<span class="text-brand-500 animate-pulse">Listening...</span>';
+                els.pronunciationFeedback.innerHTML = '<span class="text-brand-500 animate-pulse">Listening & Recording...</span>';
 
-                recognition.onresult = (ev) => {
-                    recognitionReceivedResult = true;
-                    const transcript = ev.results[0][0].transcript;
-                    const target = els.englishText.textContent.replace(/<[^>]*>/g, '');
+                // Attempt to run SpeechRecognition in parallel for grading
+                if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+                    const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognition = new SpeechRecognitionClass();
+                    recognition.lang = 'en-US';
+                    recognition.continuous = false;
+                    recognition.interimResults = false;
                     
-                    // Hybrid Word-Character Levenshtein Distance for lenient pronunciation scoring
-                    const charDist = (s, t) => {
-                        const n = s.length;
-                        const m = t.length;
-                        if (n === 0) return m;
-                        if (m === 0) return n;
-                        
-                        const dp = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
-                        for (let i = 0; i <= n; i++) dp[i][0] = i;
-                        for (let j = 0; j <= m; j++) dp[0][j] = j;
-                        
-                        for (let i = 1; i <= n; i++) {
-                            for (let j = 1; j <= m; j++) {
-                                const cost = s[i - 1] === t[j - 1] ? 0 : 1;
-                                dp[i][j] = Math.min(
-                                    dp[i - 1][j] + 1,
-                                    dp[i][j - 1] + 1,
-                                    dp[i - 1][j - 1] + cost
-                                );
-                            }
-                        }
-                        return dp[n][m];
+                    recognitionResultText = null;
+                    recognitionErrorOccurred = false;
+                    recognitionActive = true;
+
+                    recognition.onresult = (ev) => {
+                        recognitionResultText = ev.results[0][0].transcript;
                     };
 
-                    const wordSimilarity = (w1, w2) => {
-                        const d = charDist(w1, w2);
-                        const maxLen = Math.max(w1.length, w2.length);
-                        return maxLen === 0 ? 0 : 1 - d / maxLen;
+                    recognition.onerror = (ev) => {
+                        console.error('Speech recognition error', ev.error);
+                        recognitionErrorOccurred = true;
                     };
 
-                    // Clean strings for comparison (remove punctuation, lower case)
-                    const cleanT = transcript.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g,"").trim();
-                    const cleanTarget = target.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()]/g,"").trim();
+                    recognition.onend = () => {
+                        recognitionActive = false;
+                    };
 
-                    const targetWords = cleanTarget.split(/\s+/).filter(Boolean);
-                    const userWords = cleanT.split(/\s+/).filter(Boolean);
+                    recognition.start();
+                } else {
+                    console.warn('SpeechRecognition not supported in this browser');
+                    recognitionErrorOccurred = true;
+                }
 
-                    let scoreVal = 0;
-
-                    if (targetWords.length > 0 && userWords.length > 0) {
-                        const n = targetWords.length;
-                        const m = userWords.length;
-                        const dp = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
-
-                        for (let i = 0; i <= n; i++) dp[i][0] = i;
-                        for (let j = 0; j <= m; j++) dp[0][j] = j;
-
-                        for (let i = 1; i <= n; i++) {
-                            for (let j = 1; j <= m; j++) {
-                                const subCost = 1 - wordSimilarity(targetWords[i - 1], userWords[j - 1]);
-                                dp[i][j] = Math.min(
-                                    dp[i - 1][j] + 1,       // deletion
-                                    dp[i][j - 1] + 1,       // insertion
-                                    dp[i - 1][j - 1] + subCost // substitution
-                                );
-                            }
-                        }
-                        const totalCost = dp[n][m];
-                        scoreVal = Math.round(Math.max(0, (1 - totalCost / Math.max(n, m)) * 100));
+                // Safety timeout (automatically stops recording after 10 seconds)
+                recordingTimeout = setTimeout(() => {
+                    if (isRecording) {
+                        stopAllRecording();
                     }
-                    
-                    let msg = '', color = '';
-                    if (scoreVal > 80) { msg = 'Excellent!'; color = 'text-green-600'; }
-                    else if (scoreVal > 50) { msg = 'Good job!'; color = 'text-blue-500'; }
-                    else { msg = 'Try again'; color = 'text-red-500'; }
-                    
-                    els.pronunciationFeedback.innerHTML = `
-                        <div class="flex flex-col items-center">
-                            <span class="text-xs text-slate-400">You said: "${transcript}"</span>
-                            <span class="text-xl font-bold ${color}">${msg} (${scoreVal}%)</span>
-                        </div>
-                    `;
-                };
+                }, 10000);
 
-                recognition.onerror = (ev) => {
-                    console.error('Speech recognition error', ev.error);
-                    recognitionError = ev.error;
-                    let errorMsg = '音声認識エラーが発生しました';
-                    if (ev.error === 'no-speech') {
-                        errorMsg = '発音が検出されませんでした。もう一度お試しください。';
-                    } else if (ev.error === 'audio-capture') {
-                        errorMsg = 'マイクの接続に失敗しました。';
-                    } else if (ev.error === 'not-allowed') {
-                        errorMsg = 'マイクの使用が許可されていません。ブラウザの設定でマイクを許可してください。';
-                    } else if (ev.error === 'network') {
-                        errorMsg = 'ネットワークエラーが発生しました。ネット接続を確認してください。';
-                    }
-                    els.pronunciationFeedback.innerHTML = `<span class="text-red-500 font-medium">${errorMsg}</span>`;
-                };
-
-                recognition.onend = () => {
-                    recognition.started = false;
-                    els.micIcon.classList.remove('recording');
-                    els.micIcon.className = 'fas fa-microphone text-2xl';
-
-                    if (!recognitionReceivedResult && !recognitionError) {
-                        els.pronunciationFeedback.innerHTML = '<span class="text-slate-500 font-medium">発音が認識されませんでした。もう一度お試しください。</span>';
-                    }
-                };
-
-                recognition.start();
+                mediaRecorder.start();
 
             } catch (err) {
-                console.error(err);
+                console.error('Failed to access microphone:', err);
                 alert('マイクへのアクセスを許可してください');
+                isRecording = false;
                 els.micIcon.classList.remove('recording');
                 els.micIcon.className = 'fas fa-microphone text-2xl';
                 els.pronunciationFeedback.innerHTML = '<span class="text-red-500 font-medium">マイクの起動に失敗しました。</span>';
             }
         };
+
+        // play-recording-btn click handler
+        const playRecBtn = document.getElementById('play-recording-btn');
+        if (playRecBtn) {
+            playRecBtn.onclick = (e) => {
+                e.stopPropagation();
+                els.recordingPlayer.play();
+            };
+        }
 
         document.getElementById('back-to-learning-btn').onclick = () => switchSection('setup');
         document.getElementById('back-to-setup-btn').onclick = () => switchSection('setup');
